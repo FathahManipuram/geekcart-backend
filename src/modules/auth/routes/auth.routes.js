@@ -1,0 +1,14 @@
+import { Router } from "express";
+import { forgotPasswordController, loginController, logoutController, registerController, resetPasswordController, verifyEmailController } from "../controllers/auth.controller.js";
+const router= Router()
+
+
+router.post("/register", registerController)
+router.post("/verify-email", verifyEmailController)
+router.post("/login", loginController)
+router.post("/forgot-password", forgotPasswordController)
+router.put("reset-password", resetPasswordController)
+router.post("/logout", logoutController)
+
+
+export default router
