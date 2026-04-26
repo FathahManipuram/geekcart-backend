@@ -4,6 +4,8 @@ import cors from 'cors'
 
 
 import app from "../src/app.js"
+import connectDB from './infrastructure/database/connection.js'
+
 
 const PORT= process.env.PORT 
 const StartServer= async()=>{
@@ -17,3 +19,4 @@ const StartServer= async()=>{
 	}
 }
 StartServer()
+connectDB()
