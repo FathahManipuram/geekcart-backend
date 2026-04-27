@@ -21,10 +21,8 @@ export const registerUser= async(data)=>{
 	const otp= await createOtp({
 		userId: user._id,
 		email:user.email,
-		type: OTP_TYPES.EMAIL_VERIFY,
-	})
-
-
+		type: OTP_TYPES.EMAIL_VERIFY,	
+		})
 	console.log("OTP: ", otp)
 	return {message: "User registered successfully"}
 }
