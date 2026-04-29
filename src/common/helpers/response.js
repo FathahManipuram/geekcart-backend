@@ -1,4 +1,4 @@
-export const successResponse= (res, statusCode, message, data={})=>{
+export const successResponse= (res, statusCode, message, data=null)=>{
 const response={
 	success: true,
 	message,
