@@ -12,7 +12,6 @@ export const generateRefreshToken= (user)=>{
 	})
 }
 
-
 export const jwtVerify=(refreshToken, secretCode)=>{
 	return jwt.verify(refreshToken, secretCode)
 }
