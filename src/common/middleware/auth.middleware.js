@@ -1,6 +1,6 @@
-import { HTTP_STATUS } from "../constants/statusCode"
-import { AppError } from "../utils/AppError"
-import { jwtVerify } from "../utils/jwt"
+import { HTTP_STATUS } from "../constants/statusCode.js"
+import { AppError } from "../utils/AppError.js"
+import { jwtVerify } from "../utils/jwt.js"
 
 const authMiddleware= async(req, res, next)=>{
 	try{
