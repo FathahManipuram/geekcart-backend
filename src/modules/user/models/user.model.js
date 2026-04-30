@@ -3,7 +3,7 @@ import mongoose from 'mongoose'
 const userSchema= new mongoose.Schema({
 	fullName: {type: String, trim: true, required: true},
 	email: {type: String, required:true, unique: true, lowercase: true, index: true},
-	password:{type: String, required: true, required: function(){ return !this.googleId}},
+	password:{type: String, required: true, required: function(){ return !this.googleId}, select: false},
 	role:{type: String, enum:[
 		"user", "admin"
 	], default:"user"},
