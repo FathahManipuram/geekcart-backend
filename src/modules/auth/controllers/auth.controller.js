@@ -20,6 +20,7 @@ export const registerController = async(req, res, next)=>{
 		next(err)
 	}
 }
+
 //Verify-Email
 export const verifyEmailController= async(req, res, next)=>{
 	try{

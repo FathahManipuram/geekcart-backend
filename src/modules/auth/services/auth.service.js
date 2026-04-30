@@ -5,7 +5,6 @@ import { comparePassword, hashPassword } from "../../../common/utils/encryption.
 import { OTP_TYPES } from "../../../common/constants/otpTypes.js"
 import { sendEmail } from '../../../infrastructure/services/email.service.js'
 import { otpTemplate } from '../../../common/utils/emailTemplates.js'
-import { generateOtp } from '../../../common/utils/otp.js'
 import { AppError } from '../../../common/utils/AppError.js'
 import { HTTP_STATUS } from '../../../common/constants/statusCode.js'
 
@@ -82,7 +81,7 @@ export const resendOtpService= async({email, type})=>{
 			HTTP_STATUS.INTERNAL_SERVER_ERROR
 		)
 	   }
-	   
+
 	await sendEmail({
 			to: email,
 			subject: "Verify your email",
@@ -96,7 +95,7 @@ export const resendOtpService= async({email, type})=>{
 export const loginUser= async({email, password})=>{
 	const user= await User.findOne({email})
 
-	if(!user) throw new AppError("User not found", HTTP_STATUS.NOT_FOUND)
+	if(!user) throw new AppError("Invalid credentials", HTTP_STATUS.UNAUTHORIZED)
 	if(!user.isVerified) throw new AppError("Verify email first", HTTP_STATUS.BAD_REQUEST)
 	if(user.isBlocked) throw new AppError("User is blocked", HTTP_STATUS.FORBIDDEN)
 
@@ -109,10 +108,16 @@ export const loginUser= async({email, password})=>{
 
 	user.lastLoginAt= new Date();
 	await user.save()
+	const safeUser= {
+		id: user._id,
+		email: user.email,
+		fullName: user.fullName,
+		role: user.role
+	}
 	return {
 		message: "Login successful",
 		data:{
-		user, 
+		user: safeUser,
 		accessToken, 
 		refreshToken
 		},
@@ -145,6 +150,10 @@ return {message: "OTP sent if account exists"}
 
 //Reset password
 export const resetPassword= async({email, otp, newPassword})=>{
+	const user= await User.findOne({email})
+	if(!user){
+		throw new AppError("Invalid request", HTTP_STATUS.BAD_REQUEST)
+	}
 	await verifyOtp({
 		email, 
 		otp, 
