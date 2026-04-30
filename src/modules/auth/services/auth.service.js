@@ -1,6 +1,6 @@
 import { createOtp, resendOtp, verifyOtp } from '../../../common/services/otp.service.js'
 import User from '../../user/models/user.model.js'
-import { generateAccessToken, generateRefreshToken } from "../../../common/utils/jwt.js"
+import { generateAccessToken, generateRefreshToken, jwtVerify } from "../../../common/utils/jwt.js"
 import { comparePassword, hashPassword } from "../../../common/utils/encryption.js"
 import { OTP_TYPES } from "../../../common/constants/otpTypes.js"
 import { sendEmail } from '../../../infrastructure/services/email.service.js'
@@ -64,14 +64,32 @@ return {message: "Email verified successfully"}
 // Resend OTP
 export const resendOtpService= async({email, type})=>{
 	console.log("resendService", email, type)
+	const user= await User.findOne({email})
+
+	if(!user) {
+		return {message: "OTP sent if account exists"}
+	}
+
+	if(user.isBlocked){
+		throw new AppError("User is blocked", HTTP_STATUS.FORBIDDEN)
+	}
+
 	const otp= await resendOtp({email, type})
-console.log("Otp: ", otp)
+       console.log("Otp: ", otp)
+
+	   if(!otp){
+		throw new AppError("Failed to generate OTP",
+			HTTP_STATUS.INTERNAL_SERVER_ERROR
+		)
+	   }
+	   
 	await sendEmail({
 			to: email,
 			subject: "Verify your email",
 			html: otpTemplate(otp)
 		})
-		return {message: "OTP resend successfully"}
+
+		return {message: "OTP resent successfully"}
 }
 
 //login user
@@ -83,7 +101,7 @@ export const loginUser= async({email, password})=>{
 	if(user.isBlocked) throw new AppError("User is blocked", HTTP_STATUS.FORBIDDEN)
 
 	const isMatch= await comparePassword(password, user.password)
-	if(!isMatch) throw new Error("Invalid credentials")
+	if(!isMatch) throw new AppError("Invalid credentials", HTTP_STATUS.UNAUTHORIZED)
 
 
 	const accessToken= generateAccessToken(user)
@@ -104,16 +122,14 @@ export const loginUser= async({email, password})=>{
 
 //Forgot password
 export const forgotPassword= async({email})=>{
-let otp;
 const user= await User.findOne({email})
 
 if (user && !user.isBlocked){
-otp= await createOtp({
+const otp= await createOtp({
 	userId: user._id,
 	email: user.email,
 	type:  OTP_TYPES.PASSWORD_RESET,
 })
-}
 
 await sendEmail({
 	to: email,
@@ -121,9 +137,8 @@ await sendEmail({
 	html: otpTemplate(otp)
 
 })
-
+}
 return {message: "OTP sent if account exists"}
-
 }
 
 
@@ -155,9 +170,10 @@ export const logoutUser=()=>{
 
 export const refreshTokenService= async ({refreshToken})=>{
 
-		if(!refreshToken) throw new AppError("Refresh token required")
+		if(!refreshToken) throw new AppError("Refresh token required", HTTP_STATUS.BAD_REQUEST)
 
-		const decoded= jwt.verify(
+
+		const decoded= jwtVerify(
 			refreshToken,
 			process.env.JWT_REFRESH_SECRET
 		)
@@ -165,6 +181,15 @@ export const refreshTokenService= async ({refreshToken})=>{
 
 		const user= await User.findById(decoded.id)
 
+		if(!user){
+			throw new AppError("User not found", HTTP_STATUS.NOT_FOUND)
+		}
+
 		const newAccessToken= generateAccessToken(user)
-		return {message: "Token refreshed"}
+		return {
+			message: "Token refreshed",
+			data:{
+				accessToken: newAccessToken,
+			},
+			}
 }

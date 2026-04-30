@@ -11,3 +11,8 @@ export const generateRefreshToken= (user)=>{
 		expiresIn:"7d"
 	})
 }
+
+
+export const jwtVerify=(refreshToken, secretCode)=>{
+	return jwt.verify(refreshToken, secretCode)
+}

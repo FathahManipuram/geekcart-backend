@@ -24,7 +24,11 @@ export const registerController = async(req, res, next)=>{
 export const verifyEmailController= async(req, res, next)=>{
 	try{
 		const result= await authService.verifyOtpService(req.body)
-		res.json(result)
+		return successResponse(
+			res,
+			HTTP_STATUS.OK,
+			result.message
+		)
 	}catch(err){
 		next(err)
 	}
@@ -35,8 +39,12 @@ export const resendOtpController= async(req, res, next)=>{
 	console.log("resenetroute: ", req.body)
 	try{
 		const result= await authService.resendOtpService(req.body)
-		res.json(result)
-		console.log("Otp resent Result: ", result)
+				console.log("Otp resent Result: ", result)
+		return successResponse(
+			res,
+			HTTP_STATUS.OK,
+			result.message
+		)
 	}catch(err){
 		next(err)
 	}
@@ -46,7 +54,12 @@ export const resendOtpController= async(req, res, next)=>{
 export const loginController= async(req, res, next)=>{
 	try{
 		const result= await authService.loginUser(req.body)
-		res.json(result)
+		return successResponse(
+			res,
+			HTTP_STATUS.OK,
+			result.message,
+			result.data
+		)
 	}catch(err){
 		next(err)
 	}
@@ -57,7 +70,11 @@ export const loginController= async(req, res, next)=>{
 export const forgotPasswordController= async(req, res, next)=>{
 try{
 	const result= await authService.forgotPassword(req.body)
-	res.json(result)
+	return successResponse(
+		res,
+		HTTP_STATUS.OK,
+		result.message
+	)
 }catch(err){
 next(err)
 }
@@ -68,34 +85,41 @@ next(err)
 export const resetPasswordController=async(req, res, next)=>{
 	try{
 		const result= await authService.resetPassword(req.body)
-		res.json(result)
+		return successResponse(
+			res,
+			HTTP_STATUS.OK,
+			result.message
+		)
 	}catch(err){
 		next(err)
 	}
 }
-
-
 
 
 //Logout 
 export const logoutController= async(req, res, next)=>{
 	try{
 		const result= await authService.logoutUser()
-		res.json(result)
+		return successResponse(
+			res,
+			HTTP_STATUS.OK,
+			result.message
+		)
 	}catch(err){
 		next(err)
 	}
 }
 
+
+//Refresh token
 export const refreshTokenController = async(req, res, next)=>{
 	try{
 		const result= await authService.refreshTokenService(req.body)
-		
 		return successResponse(
 			res,
 			HTTP_STATUS.OK,
 			result.message,
-			{accessToken: newAccessToken}
+			result.data,
 		)
 
 	}catch(err){
