@@ -26,6 +26,12 @@ export const getProfileService= async(userId)=>{
 //Update profile
 
 export const updateProfileService= async(userId, data)=>{
+	const userExists= await User.exists(userId)
+
+	if(!userExists){
+		throw new AppError("User not found", HTTP_STATUS.NOT_FOUND)
+	} 
+
 	const user= await User.findByIdAndUpdate(
 		userId,
 		data,
