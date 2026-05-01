@@ -4,6 +4,7 @@ import { createOtp, verifyOtp } from "../../../common/services/otp.service.js"
 import { AppError } from "../../../common/utils/AppError.js"
 import { otpTemplate } from "../../../common/utils/emailTemplates.js"
 import { comparePassword, hashPassword } from "../../../common/utils/encryption.js"
+import { uploadImage } from "../../../common/utils/uploadImage.js"
 import { sendEmail } from "../../../infrastructure/services/email.service.js"
 import User from "../models/user.model.js"
 
@@ -94,4 +95,25 @@ export const changePasswordService= async(userId, data)=>{
 	await user.save()
 
 	return {message: "Password changed successfully"}
+}
+
+//Upload profile image
+export const uploadProfileImageService= (userId, file)=>{
+	
+	const userExist= await User.exists({_id: userId})
+if(!userExist){
+	throw new AppError("User not found", HTTP_STATUS.NOT_FOUND)
+}
+
+	const imageUrl= await uploadImage(file, "profile")
+
+	const user= await User.findByIdAndUpdate(userId,
+		{avatar: imageUrl.secure_url},
+		{new: true}
+	)
+
+	return {
+		message: "Profile image updated",
+		data: user,
+	}
 }

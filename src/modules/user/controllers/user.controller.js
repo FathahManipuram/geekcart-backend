@@ -84,3 +84,20 @@ export const changePasswordController= async(req, res, next)=>{
 		next(err)
 	}
 }
+
+
+//Uplode profile image
+export const uploadProfileImageController= async(req, res, next)=>{
+	try{
+		const userId= req.user.id
+		const result= await userService.uploadProfileImageService(userId, req.file)
+		return successResponse(
+			res,
+			HTTP_STATUS.OK,
+			result.message,
+			result.data
+		)
+	}catch(err){
+		next(err)
+	}
+}
