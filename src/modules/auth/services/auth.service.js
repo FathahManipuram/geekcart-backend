@@ -93,21 +93,23 @@ export const resendOtpService= async({email, type})=>{
 
 //login user
 export const loginUser= async({email, password})=>{
-	const user= await User.findOne({email})
+	const user= await User.findOne({email}).select("+password")
 
 	if(!user) throw new AppError("Invalid credentials", HTTP_STATUS.UNAUTHORIZED)
 	if(!user.isVerified) throw new AppError("Verify email first", HTTP_STATUS.BAD_REQUEST)
 	if(user.isBlocked) throw new AppError("User is blocked", HTTP_STATUS.FORBIDDEN)
-
+	console.log("User", user)
 	const isMatch= await comparePassword(password, user.password)
+	console.log("isMatch:", isMatch)
 	if(!isMatch) throw new AppError("Invalid credentials", HTTP_STATUS.UNAUTHORIZED)
 
 
 	const accessToken= generateAccessToken(user)
 	const refreshToken= generateRefreshToken(user)
 
-	user.lastLoginAt= new Date();
-	await user.save()
+	await User.updateOne({_id: user._id}, 
+		{$set: {lastLoginAt: new Date()}}
+	)
 	const safeUser= {
 		id: user._id,
 		email: user.email,

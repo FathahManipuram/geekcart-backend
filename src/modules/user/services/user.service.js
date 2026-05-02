@@ -26,17 +26,17 @@ export const getProfileService= async(userId)=>{
 //Update profile
 
 export const updateProfileService= async(userId, data)=>{
-	const userExists= await User.exists(userId)
 
-	if(!userExists){
-		throw new AppError("User not found", HTTP_STATUS.NOT_FOUND)
-	} 
-
+	
 	const user= await User.findByIdAndUpdate(
 		userId,
 		data,
 		{new: true}
 	)
+
+	if(!user){
+		throw new AppError("User not found", HTTP_STATUS.NOT_FOUND)
+	} 
 
 	return {message: "Profile updated successfully",
 		data: user
@@ -104,7 +104,7 @@ export const changePasswordService= async(userId, data)=>{
 }
 
 //Upload profile image
-export const uploadProfileImageService= (userId, file)=>{
+export const uploadProfileImageService= async (userId, file)=>{
 	
 	const userExist= await User.exists({_id: userId})
 if(!userExist){

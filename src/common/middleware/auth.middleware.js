@@ -1,7 +1,7 @@
 import { HTTP_STATUS } from "../constants/statusCode.js"
 import { AppError } from "../utils/AppError.js"
 import { jwtVerify } from "../utils/jwt.js"
-
+import User from "../../modules/user/models/user.model.js"
 const authMiddleware= async(req, res, next)=>{
 	try{
 		const authHeader= req.headers.authorization
@@ -17,17 +17,22 @@ const authMiddleware= async(req, res, next)=>{
 	const user= await User.findById(decoded.id)
 
 	if(!user){
-		throw new AppError("User not found", HTTP_STATUS.NOT_FOUND)
+		throw new AppError("Authentication required", HTTP_STATUS.UNAUTHORIZED)
 	}
 
-	if(!user.isBlocked){
+	if(user.isBlocked){
 		throw new AppError("User is blocked", HTTP_STATUS.FORBIDDEN)
 	}
 	req.user= user
-	next()
+	return next()
 	} catch(err){
-		console.log("error NAme:", err.name)
-		next(err)
+
+		if(err.name==="TokenExpiredError"){
+			return next(
+				new AppError("Token expired, plese login again", HTTP_STATUS.UNAUTHORIZED)
+			)
+		}
+		return next(err)
 	}
 }
 

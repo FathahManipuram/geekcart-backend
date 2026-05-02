@@ -1,6 +1,6 @@
-import { HTTP_STATUS } from "../constants/statusCode"
-import { AppError } from "./AppError"
-import { uploadFile } from "./uploadFile"
+import { HTTP_STATUS } from "../constants/statusCode.js"
+import { AppError } from "./AppError.js"
+import { uploadFile } from "./uploadFile.js"
 
 export const uploadImage= async (file, folder= "images")=>{
 	

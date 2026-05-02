@@ -28,7 +28,7 @@ return otp
 export const verifyOtp= async({email, otp, type})=>{
 	console.log(email, type)
 	const record= await Otp.findOne({email, type})
-	console.log("Recorrd: ", record)
+	console.log("Record: ", record)
 	if(!record) throw new Error("OTP expired or not found")
 	if(record.attemptCount>=record.maxAttempts) throw new Error("Too many attempts")
 

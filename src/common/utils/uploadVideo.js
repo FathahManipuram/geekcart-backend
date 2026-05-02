@@ -1,5 +1,5 @@
-import { AppError } from "./AppError"
-import { uploadFile } from "./uploadFile"
+import { AppError } from "./AppError.js"
+import { uploadFile } from "./uploadFile.js"
 
 
 export const uploadVideo= async(file, folder="videos")=>{

@@ -8,12 +8,15 @@ const userSchema= new mongoose.Schema({
 		"user", "admin"
 	], default:"user"},
 	phoneNumber: {type: String},
-	avatar: {type: String},
+	avatar: {type: String , default: function(){
+		return `https://ui-avatars.com/api/?name=${encodeURIComponent(this.name)}&background=random`
+		}
+		},
 	isBlocked: {type: Boolean, default: false},
 	isVerified:{type: Boolean, default: false},
 	gender: {type: String, enum:[
 		"male", "female"
-	]},
+	], default: null},
 dateOfBirth: {type:Date},
 googleId: {type: String},
 lastLoginAt: {type: Date,},

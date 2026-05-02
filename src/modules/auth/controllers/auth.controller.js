@@ -54,6 +54,7 @@ export const resendOtpController= async(req, res, next)=>{
 //Login
 export const loginController= async(req, res, next)=>{
 	try{
+		console.log("LoginUserController: ", req.body)
 		const result= await authService.loginUser(req.body)
 		return successResponse(
 			res,
