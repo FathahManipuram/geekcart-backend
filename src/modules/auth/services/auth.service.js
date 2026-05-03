@@ -7,6 +7,7 @@ import { sendEmail } from '../../../infrastructure/services/email.service.js'
 import { otpTemplate } from '../../../common/utils/emailTemplates.js'
 import { AppError } from '../../../common/utils/AppError.js'
 import { HTTP_STATUS } from '../../../common/constants/statusCode.js'
+import { OAuth2Client } from 'google-auth-library'
 
 
 //user register
@@ -203,4 +204,52 @@ export const refreshTokenService= async ({refreshToken})=>{
 				accessToken: newAccessToken,
 			},
 			}
+}
+
+//Google login
+
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
+
+export const googleLoginService= async (token)=>{
+	const ticket= await client.verifyIdToken({
+		idToken: token,
+		audience: process.env.GOOGLE_CLIENT_ID,
+	})
+
+	const payload = ticket.getPayload()
+
+	const{
+		email,
+		name,
+		picture,
+		email_verified,
+	}= payload
+
+	if(!email_verified){
+		throw new AppError("Google email not verified", HTTP_STATUS.BAD_REQUEST)
+	}
+
+	let user= await User.findOne({email})
+
+	if(!user){
+		user= await User.create({
+			email,
+			fullName: name,
+			isVerified: true,
+			avatar: picture,
+			provider: "google",
+			googleId: token
+		})
+	}
+
+	const accessToken = generateAccessToken(user)
+	const refreshToken= generateRefreshToken(user)
+	return {
+		message: "Google login successful",
+		dat:{
+			user,
+			accessToken,
+			refreshToken,
+		}
+	}
 }

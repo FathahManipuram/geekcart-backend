@@ -128,3 +128,21 @@ export const refreshTokenController = async(req, res, next)=>{
 		next(err)
 	}
 }
+
+
+// Google login
+
+export const googleLoginController= async (req, res, next)=>{
+	try{
+		const { token }= req.body
+		const result= await authService.googleLoginService(token)
+		return successResponse(
+			res,
+			HTTP_STATUS.OK,
+			result.message,
+			result.data
+		)
+	}catch(err){
+		next(err)
+	}
+}
