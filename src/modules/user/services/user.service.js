@@ -39,7 +39,9 @@ export const updateProfileService= async(userId, data)=>{
 	} 
 
 	return {message: "Profile updated successfully",
-		data: user
+		data: {
+			user
+		}
 	}
 }
 
@@ -105,9 +107,13 @@ export const changePasswordService= async(userId, data)=>{
 
 //Upload profile image
 export const uploadProfileImageService= async (userId, file)=>{
-	
+
+	if(!file){
+		throw new AppError("Image file required", HTTP_STATUS.BAD_REQUEST)
+	}
+
 	const userExist= await User.exists({_id: userId})
-if(!userExist){
+    if(!userExist){
 	throw new AppError("User not found", HTTP_STATUS.NOT_FOUND)
 }
 
@@ -119,7 +125,9 @@ if(!userExist){
 	)
 
 	return {
-		message: "Profile image updated",
-		data: user,
+		message: "Profile image updated successfully",
+		data:{
+			avatar: user.avatar
+		}
 	}
 }
