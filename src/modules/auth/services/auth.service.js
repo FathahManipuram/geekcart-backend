@@ -45,25 +45,25 @@ export const registerUser= async(data)=>{
 }
 
 
-//Verify email
-export const verifyOtpService= async({email, otp})=>{
+//Verify OTP
+export const verifyOtpService= async({email, otp, type})=>{
 	await verifyOtp({
 		email, 
 		otp, 
-		type: OTP_TYPES.EMAIL_VERIFY,
-		})
+		type,
+	})
 
+	if(type===OTP_TYPES.EMAIL_VERIFY){
+		await User.updateOne({email}, {isVerified: true})
+	}
 
-const user= await User.updateOne({email}, {isVerified: true})
-
-	console.log("verifieduser: ", user)
-return {message: "Email verified successfully"}
+  return {message: "OTP verified successfully"}
 }
 
 
 // Resend OTP
 export const resendOtpService= async({email, type})=>{
-	console.log("resendService", email, type)
+
 	const user= await User.findOne({email})
 
 	if(!user) {
@@ -83,9 +83,11 @@ export const resendOtpService= async({email, type})=>{
 		)
 	   }
 
+	   const subject= type=== OTP_TYPES.EMAIL_VERIFY ? "Verify your email": "Reset password OTP";
+
 	await sendEmail({
 			to: email,
-			subject: "Verify your email",
+			subject,
 			html: otpTemplate(otp)
 		})
 
@@ -99,7 +101,10 @@ export const loginUser= async({email, password})=>{
 	if(!user) throw new AppError("Invalid credentials", HTTP_STATUS.UNAUTHORIZED)
 	if(!user.isVerified) throw new AppError("Verify email first", HTTP_STATUS.BAD_REQUEST)
 	if(user.isBlocked) throw new AppError("User is blocked", HTTP_STATUS.FORBIDDEN)
-	console.log("User", user)
+	
+	if(user.provider==="google"){
+	throw new AppError("Use google login")
+}
 	const isMatch= await comparePassword(password, user.password)
 	console.log("isMatch:", isMatch)
 	if(!isMatch) throw new AppError("Invalid credentials", HTTP_STATUS.UNAUTHORIZED)
@@ -152,17 +157,13 @@ return {message: "OTP sent if account exists"}
 
 
 //Reset password
-export const resetPassword= async({email, otp, newPassword})=>{
+export const resetPassword= async({email, newPassword})=>{
+	
 	const user= await User.findOne({email})
 	if(!user){
 		throw new AppError("Invalid request", HTTP_STATUS.BAD_REQUEST)
 	}
-	await verifyOtp({
-		email, 
-		otp, 
-		type: OTP_TYPES.PASSWORD_RESET,
-	})
-
+	
 	const hashedPassword= await hashPassword(newPassword)
 	await User.updateOne(
 		{email},
@@ -223,6 +224,7 @@ export const googleLoginService= async (token)=>{
 		name,
 		picture,
 		email_verified,
+		sub,
 	}= payload
 
 	if(!email_verified){
@@ -231,23 +233,45 @@ export const googleLoginService= async (token)=>{
 
 	let user= await User.findOne({email})
 
-	if(!user){
+	if(user){
+		if(!user.googleId){
+		await User.updateOne(
+			{_id: user._id},
+			{
+				$set:{
+			googleId: sub,
+			provider: "google",
+			isVerified: true,
+				}
+			}
+		)
+		}
+		
+	}else{
 		user= await User.create({
 			email,
 			fullName: name,
 			isVerified: true,
 			avatar: picture,
 			provider: "google",
-			googleId: token
+			googleId: sub,
 		})
 	}
 
 	const accessToken = generateAccessToken(user)
 	const refreshToken= generateRefreshToken(user)
+
+		const safeUser= {
+		id: user._id,
+		email: user.email,
+		fullName: user.fullName,
+		role: user.role
+	}
+
 	return {
 		message: "Google login successful",
-		dat:{
-			user,
+		data:{
+			user: safeUser,
 			accessToken,
 			refreshToken,
 		}

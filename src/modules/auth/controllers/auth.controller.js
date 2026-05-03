@@ -21,8 +21,8 @@ export const registerController = async(req, res, next)=>{
 	}
 }
 
-//Verify-Email
-export const verifyEmailController= async(req, res, next)=>{
+//Verify-OTP
+export const verifyOtpController= async(req, res, next)=>{
 	try{
 		const result= await authService.verifyOtpService(req.body)
 		return successResponse(

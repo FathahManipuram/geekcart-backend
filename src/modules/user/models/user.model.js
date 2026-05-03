@@ -19,6 +19,11 @@ const userSchema= new mongoose.Schema({
 	], default: null},
 dateOfBirth: {type:Date},
 googleId: {type: String},
+provider: {
+	type: String,
+	enum: ["local", "google"],
+	default: "local",
+},
 lastLoginAt: {type: Date,},
 },
 {timestamps: true})
