@@ -27,3 +27,48 @@ if(!admin || admin.role !== "admin"){
 		},
 		}
 }
+
+
+export const getUsers= async (query)=>{
+	const{
+		page= 1,
+		limit=10,
+		search=""
+	}= query;
+
+	const filter={
+		fullName: {$regex: search, $options: "i"},
+	}
+
+	const users= await User.find(filter)
+	.sort({createdAt:-1})
+	.skip((page-1)* limit)
+	.limit(Number(limit.select("-password")))
+
+	const total= await User.countDocuments(filter);
+
+	return {
+		message: "Users fetched",
+		data:{
+		users,
+		total,
+		page,
+		pages: Math.ceil(total/limit),
+		}
+		
+	}
+}
+
+export const toggleBlockUser= async (userId)=>{
+		const user= await findById(userId)
+		if(!user){
+			throw new AppError("User not found", HTTP_STATUS.NOT_FOUND)
+		}
+		const isBlocked= !user.Blocked;
+		await User.updateOne({_id: userId}, 
+			{$set: {isBlocked: isBlocked}}
+		)
+		return {
+			message: user.isBlocked? "User blocked": "User unblocked",
+		}
+	}
