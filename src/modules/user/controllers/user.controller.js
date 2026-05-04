@@ -62,7 +62,8 @@ export const verifyEmailChangeController= async(req, res, next)=>{
 		return successResponse(
 			res,
 			HTTP_STATUS.OK,
-			result.message
+			result.message,
+			result.data,
 		)
 	}catch(err){
 		next(err)
@@ -70,20 +71,20 @@ export const verifyEmailChangeController= async(req, res, next)=>{
 }
 
 
-//Change password
-export const changePasswordController= async(req, res, next)=>{
-	try{
-		const userId= req.user.id
-		const result= await userService.changePasswordService(userId, req.body)
-		return successResponse(
-			res,
-			HTTP_STATUS.OK,
-			result.message
-		)
-	}catch(err){
-		next(err)
-	}
-}
+// //Change password
+// export const changePasswordController= async(req, res, next)=>{
+// 	try{
+// 		const userId= req.user.id
+// 		const result= await userService.changePasswordService(userId, req.body)
+// 		return successResponse(
+// 			res,
+// 			HTTP_STATUS.OK,
+// 			result.message
+// 		)
+// 	}catch(err){
+// 		next(err)
+// 	}
+// }
 
 
 //Uplode profile image
@@ -98,6 +99,22 @@ export const uploadProfileImageController= async(req, res, next)=>{
 			result.data
 		)
 	}catch(err){
+		next(err)
+	}
+}
+
+
+//Change password
+export const changePasswordController = async (req, res, next)=>{
+	try{
+		const userId= req.user.id
+		const result= await userService.changePasswordService(userId, req.body)
+		return successResponse(
+			res,
+			HTTP_STATUS.OK,
+			result.message,
+		)
+	} catch(err){
 		next(err)
 	}
 }

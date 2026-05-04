@@ -66,7 +66,7 @@ export const changeEmailService= async(userId, newEmail)=>{
 
 	await sendEmail({
 		to: newEmail,
-		subject: "Verify new email",
+		subject: "Verify your new email",
 		html: otpTemplate(otp),
 	})
 
@@ -80,30 +80,36 @@ export const verifyEmailChangeService= async({userId, email, otp})=>{
 		otp,
 		type: OTP_TYPES.EMAIL_CHANGE,
 	})
-	await User.findByIdAndUpdate(userId, {email})
+	await User.findByIdAndUpdate(userId, {email}, {new: true})
 
-	return {message: "Email updated successfully"}
+	return {
+		message: "Email updated successfully",
+		data:{
+			user
+		},
+	}
 }
 
 
-//Change passsword
-export const changePasswordService= async(userId, data)=>{
-	const {oldPassword, newPassword}= data;
-	const user= await User.findById(userId).select("+password")
-	if(!user){
-		throw new AppError("User not found", HTTP_STATUS.NOT_FOUND)
-	}
-	const isMatch= await comparePassword(oldPassword, user.password)
+// //Change passsword
+// export const changePasswordService= async(userId, data)=>{
+// 	const {oldPassword, newPassword}= data;
+// 	const user= await User.findById(userId).select("+password")
+// 	if(!user){
+// 		throw new AppError("User not found", HTTP_STATUS.NOT_FOUND)
+// 	}
+// 	const isMatch= await comparePassword(oldPassword, user.password)
 
-	if(!isMatch){
-		throw new AppError("Incorrect old password", HTTP_STATUS.BAD_REQUEST)
-	}
+// 	if(!isMatch){
+// 		throw new AppError("Incorrect old password", HTTP_STATUS.BAD_REQUEST)
+// 	}
 
-	user.password= await hashPassword(newPassword)
-	await user.save()
+// 	user.password= await hashPassword(newPassword)
+// 	await user.save()
 
-	return {message: "Password changed successfully"}
-}
+// 	return {message: "Password changed successfully"}
+// }
+
 
 //Upload profile image
 export const uploadProfileImageService= async (userId, file)=>{
@@ -129,5 +135,38 @@ export const uploadProfileImageService= async (userId, file)=>{
 		data:{
 			avatar: user.avatar
 		}
+	}
+}
+
+// Change password
+export const changePasswordService = async(userId, data)=>{
+	const {oldPassword, newPassword}= data
+
+	const user= await User.findById(userId).select("+password")
+
+	if(!user){
+		throw new AppError("User not found", HTTP_STATUS.NOT_FOUND)
+	}
+
+	const isMatch= await comparePassword(oldPassword, user.password)
+
+	if(!isMatch){
+		throw new AppError("Incorrect old password", HTTP_STATUS.BAD_REQUEST)
+	}
+
+	const isSame= await comparePassword(newPassword, user.password)
+
+	if(isSame){
+		throw new AppError("New password must be different", HTTP_STATUS.BAD_REQUEST)
+	}
+
+	const hashedPassword= await hashPassword(newPassword)
+
+	await User.updateOne(
+		{_id: userId},
+		{$set: {password: hashedPassword}}
+	)
+	return {
+		message: "Password changed successfully",
 	}
 }
