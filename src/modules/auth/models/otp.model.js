@@ -9,7 +9,10 @@ const otpSchema= new mongoose.Schema({
 		enum:["email-verify", "password-reset", "email-change"],
 		required: true,
 	},
-
+	meta: {
+		type: Object,
+		default: {},
+	},
 	attemptCount: {type: Number, default:0},
 	maxAttempt: {type: Number, default:5},
 

@@ -21,6 +21,7 @@ export const getProfileController= async(req, res, next)=>{
 //Update profile
 export const updateProfileController= async (req, res, next)=>{
 	try{
+		console.log("updateimaController:", req.body)
 		const userId= req.user.id
 		const result= await userService.updateProfileService(userId, req.body)
 		return successResponse(
@@ -57,8 +58,9 @@ export const verifyEmailChangeController= async(req, res, next)=>{
 	try{
 		const userId= req.user.id
 		const {email, otp}= req.body
+		console.log("verify emailchanController", userId, email, otp)
 
-		const result= await userService.verifyEmailChangeService(userId, email, otp)
+		const result= await userService.verifyEmailChangeService({userId, email, otp})
 		return successResponse(
 			res,
 			HTTP_STATUS.OK,
@@ -69,23 +71,6 @@ export const verifyEmailChangeController= async(req, res, next)=>{
 		next(err)
 	}
 }
-
-
-// //Change password
-// export const changePasswordController= async(req, res, next)=>{
-// 	try{
-// 		const userId= req.user.id
-// 		const result= await userService.changePasswordService(userId, req.body)
-// 		return successResponse(
-// 			res,
-// 			HTTP_STATUS.OK,
-// 			result.message
-// 		)
-// 	}catch(err){
-// 		next(err)
-// 	}
-// }
-
 
 //Uplode profile image
 export const uploadProfileImageController= async(req, res, next)=>{

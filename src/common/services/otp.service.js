@@ -2,11 +2,13 @@ import { compareOtp, generateOtp, hashOtp } from "../utils/otp.js"
 import Otp from '../../modules/auth/models/otp.model.js'
 import { sendEmail } from "../../infrastructure/services/email.service.js"
 import { otpTemplate } from "../utils/emailTemplates.js"
-import User from "../../modules/user/models/user.model.js"
+import { AppError } from "../utils/AppError.js"
+import { OTP_TYPES } from "../constants/otpTypes.js"
+import { getUserByEmail, getUserById } from "./user.services.js"
 
 
 //Create OTP
-export const createOtp= async({userId, email, type})=>{
+export const createOtp= async({userId, email, type, meta={}})=>{
 
 const otp= generateOtp()
 	const hashedOtp= await hashOtp(otp)
@@ -16,7 +18,8 @@ console.log("Otp generated")
 		email,
 		otp: hashedOtp,
 		type,
-		expiresAt: new Date(Date.now() + 10 * 60 *1000),
+		meta,
+		expiresAt: new Date(Date.now() + 5 * 60 *1000),
 	})
 
 	
@@ -25,41 +28,54 @@ return otp
 
 
 //Verify OTP
-export const verifyOtp= async({email, otp, type})=>{
-	console.log(email, type)
-	const record= await Otp.findOne({email, type})
+export const verifyOtp= async({userId, email, otp, type})=>{
+	console.log("verifyOtpcheck:", userId, email, otp, type)
+	const record= await Otp.findOne({userId, email, type})
+	console.log("verifyOtpcheck:", email, otp, type)
 	console.log("Record: ", record)
-	if(!record) throw new Error("OTP expired or not found")
-	if(record.attemptCount>=record.maxAttempts) throw new Error("Too many attempts")
-
+	
+	if(!record) throw new AppError("OTP expired or Invalid")
+	if(record.attemptCount>=record.maxAttempt) throw new AppError("Too many attempts, Try later")
+	if(record.expiresAt < new Date()){
+		await Otp.deleteOne({_id: record._id})
+		throw new AppError("OTP expired")
+	}
 	const isMatch= await compareOtp(otp, record.otp)
 
 	if(!isMatch){
-		record.attemptCount++;
-		await record.save();
-		throw new Error("Invalid OTP")
+		await record.updateOne({
+			$inc: {attemptCount: 1}
+		})
+
+		throw new AppError("Invalid OTP")
 	}
 
-	await Otp.deleteMany({email, type})
+	await Otp.deleteOne({_id: record._id})
 
-return true
+return record
 }
 
 
 //Resend OTP
-export const resendOtp= async({email, type})=>{
-console.log("resend otp", email, type)
-	const user= await User.findOne({email})
-	console.log("resend otp User", user)
-	if(!user) throw new Error("User not found")
-	if(user.isBlocked) throw new Error("User is blocked")
-	if(user.isVerified) throw new Error("User already verified")
-		await Otp.deleteMany({email, type})
+export const resendOtp= async({userId, email, type, meta= {}})=>{
+	if(!userId){
+		throw new AppError("User ID required")
+	}
 
-	const otp= await createOtp({
-		userId: user._id,
+	const user = await getUserById(userId)
+console.log("resend otp", userId, email, type)
+	if(!user) throw new AppError("User not found")
+	if(user.isBlocked) throw new AppError("User is blocked")
+	if(type === OTP_TYPES.EMAIL_VERIFY && user.isVerified){
+		throw new AppError("User already verified")
+	}
+	
+		await Otp.deleteMany({userId: user._id, type})
+
+	return await createOtp({
+		userId,
 		email,
 		type,
+		meta
 	})
-	return otp
 }

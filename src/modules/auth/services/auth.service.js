@@ -13,14 +13,14 @@ import { OAuth2Client } from 'google-auth-library'
 //user register
 export const registerUser= async(data)=>{
 	const {email, password}= data
-
 	const existingUser= await User.findOne({email})
 	if(existingUser){
 		throw new AppError("User already exists", HTTP_STATUS.CONFLICT)
 	} 
-
+	console.log("password:", password)
 	const hashedPassword= await hashPassword(password)
 
+console.log("Hashed password",hashedPassword)
 	const user= await User.create({
 		...data,
 		password: hashedPassword,
@@ -32,7 +32,7 @@ export const registerUser= async(data)=>{
 		email:user.email,
 		type: OTP_TYPES.EMAIL_VERIFY,	
 		})
-
+console.log("Otp: ",otp)
 		await sendEmail({
 			to: email,
 			subject: "Verify your email",
@@ -40,18 +40,24 @@ export const registerUser= async(data)=>{
 		})
 
 
-	console.log("OTP: ", otp)
 	return {message: "User registered successfully. Verify your email."}
 }
 
 
 //Verify OTP
 export const verifyOtpService= async({email, otp, type})=>{
-	await verifyOtp({
+	console.log("Verifotpservice :", email, otp, type)
+	const user= await User.findOne({email})
+	const userId= user.id
+	console.log(user)
+	console.log("Otpverifyservice:", email, otp, type)
+	await verifyOtp(
+		{userId,
 		email, 
 		otp, 
 		type,
-	})
+		}
+	)
 
 	if(type===OTP_TYPES.EMAIL_VERIFY){
 		await User.updateOne({email}, {isVerified: true})
@@ -74,7 +80,8 @@ export const resendOtpService= async({email, type})=>{
 		throw new AppError("User is blocked", HTTP_STATUS.FORBIDDEN)
 	}
 
-	const otp= await resendOtp({email, type})
+const userId= user._id
+	const otp= await resendOtp({userId, email, type})
        console.log("Otp: ", otp)
 
 	   if(!otp){
@@ -83,7 +90,7 @@ export const resendOtpService= async({email, type})=>{
 		)
 	   }
 
-	   const subject= type=== OTP_TYPES.EMAIL_VERIFY ? "Verify your email": "Reset password OTP";
+	   const subject= type=== OTP_TYPES.EMAIL_VERIFY ? "Verify email OTP": type=== OTP_TYPES.PASSWORD_RESET ? "Reset password OTP": "Email change OTP";
 
 	await sendEmail({
 			to: email,
@@ -96,8 +103,9 @@ export const resendOtpService= async({email, type})=>{
 
 //login user
 export const loginUser= async({email, password})=>{
+	console.log("logService: ",email, password)
 	const user= await User.findOne({email}).select("+password")
-
+console.log("User", user)
 	if(!user) throw new AppError("Invalid credentials", HTTP_STATUS.UNAUTHORIZED)
 	if(!user.isVerified) throw new AppError("Verify email first", HTTP_STATUS.BAD_REQUEST)
 	if(user.isBlocked) throw new AppError("User is blocked", HTTP_STATUS.FORBIDDEN)
@@ -122,6 +130,7 @@ export const loginUser= async({email, password})=>{
 		fullName: user.fullName,
 		role: user.role
 	}
+	console.log("SafeUser:", safeUser)
 	return {
 		message: "Login successful",
 		data:{
@@ -148,7 +157,6 @@ await sendEmail({
 	to: email,
 	subject: "Reset Password OTP",
 	html: otpTemplate(otp)
-
 })
 }
 return {message: "OTP sent if account exists"}
@@ -158,8 +166,9 @@ return {message: "OTP sent if account exists"}
 
 //Reset password
 export const resetPassword= async({email, newPassword})=>{
-	
+	console.log("ResetPass:", email, newPassword)
 	const user= await User.findOne({email})
+	console.log("RestUser:", user)
 	if(!user){
 		throw new AppError("Invalid request", HTTP_STATUS.BAD_REQUEST)
 	}
@@ -210,13 +219,13 @@ export const refreshTokenService= async ({refreshToken})=>{
 //Google login
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
-
+// console.log("ClientingogSERVICe: ", client)
 export const googleLoginService= async (token)=>{
 	const ticket= await client.verifyIdToken({
 		idToken: token,
 		audience: process.env.GOOGLE_CLIENT_ID,
 	})
-
+console.log("Ticketgoogserv:", ticket)
 	const payload = ticket.getPayload()
 
 	const{
@@ -267,7 +276,8 @@ export const googleLoginService= async (token)=>{
 		fullName: user.fullName,
 		role: user.role
 	}
-
+console.log("ggogleUser ;", user)
+console.log("googlesafeUser:", safeUser)
 	return {
 		message: "Google login successful",
 		data:{

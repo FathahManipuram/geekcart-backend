@@ -24,6 +24,8 @@ export const registerController = async(req, res, next)=>{
 //Verify-OTP
 export const verifyOtpController= async(req, res, next)=>{
 	try{
+		console.log("VerifyOTP controller:",req.body)
+
 		const result= await authService.verifyOtpService(req.body)
 		return successResponse(
 			res,
@@ -71,7 +73,9 @@ export const loginController= async(req, res, next)=>{
 //Forgot-Password
 export const forgotPasswordController= async(req, res, next)=>{
 try{
+	console.log("forgotController: ",req.body)
 	const result= await authService.forgotPassword(req.body)
+	console.log("controlerresultforgot:",result )
 	return successResponse(
 		res,
 		HTTP_STATUS.OK,
@@ -134,8 +138,10 @@ export const refreshTokenController = async(req, res, next)=>{
 
 export const googleLoginController= async (req, res, next)=>{
 	try{
+		console.log("GoogleCOntro: ", req.body)
 		const { token }= req.body
 		const result= await authService.googleLoginService(token)
+		console.log("ResultControGool", result)
 		return successResponse(
 			res,
 			HTTP_STATUS.OK,

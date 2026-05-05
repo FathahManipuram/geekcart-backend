@@ -5,8 +5,8 @@ import { upload } from '../../../common/middleware/upload.middleware.js'
 const router= Router()
 
 router.get("/profile", authMiddleware, getProfileController)
-router.put("/profile", authMiddleware, updateProfileController)
-router.post("/change-email", authMiddleware, changeEmailController)
+router.patch("/profile", authMiddleware, updateProfileController)
+router.patch("/change-email", authMiddleware, changeEmailController)
 router.post("/verify-email-change", authMiddleware, verifyEmailChangeController)
 router.post("/profile-image", authMiddleware,upload.single("image"), uploadProfileImageController)
 router.put("/change-password", authMiddleware, changePasswordController)
