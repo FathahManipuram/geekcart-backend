@@ -1,21 +1,18 @@
-import { OTP_TYPES } from "../../../common/constants/otpTypes.js"
-import { HTTP_STATUS } from "../../../common/constants/statusCode.js"
-import { createOtp, verifyOtp } from "../../../common/services/otp.service.js"
-import { AppError } from "../../../common/utils/AppError.js"
-import { otpTemplate } from "../../../common/utils/emailTemplates.js"
-import { comparePassword, hashPassword } from "../../../common/utils/encryption.js"
-import { uploadImage } from "../../../common/utils/uploadImage.js"
-import { sendEmail } from "../../../infrastructure/services/email.service.js"
-import User from "../models/user.model.js"
+import { getUserById } from "../../../../common/services/user.services.js"
+import { AppError } from "../../../../common/utils/AppError.js"
+import { comparePassword, hashPassword } from "../../../../common/utils/encryption.js"
+import { uploadImage } from "../../../../common/utils/uploadImage.js"
+import { sendEmail } from "../../../../infrastructure/services/email.service.js"
+import { User } from "../models/user.model.js"
+
 
 //Get profile
 export const getProfileService= async(userId)=>{
-	const user= await User.findById(userId)
+	const user= await getUserById(userId)
 
 	if(!user){
 		throw new AppError("User not found", HTTP_STATUS.NOT_FOUND)
 	}
-
 	return {
 		message: "Profile fetched successfully",
 		data: user
@@ -24,10 +21,8 @@ export const getProfileService= async(userId)=>{
 
 
 //Update profile
-
 export const updateProfileService= async(userId, data)=>{
-console.log("upadeprofileService: ",userId, data)
-	
+
 	const user= await User.findByIdAndUpdate(
 		userId,
 		data,
@@ -37,7 +32,7 @@ console.log("upadeprofileService: ",userId, data)
 	if(!user){
 		throw new AppError("User not found", HTTP_STATUS.NOT_FOUND)
 	} 
-console.log("updateprofileUSer:", user)
+
 	return {message: "Profile updated successfully",
 		data: user
 	}
@@ -45,8 +40,8 @@ console.log("updateprofileUSer:", user)
 
 //Change email
 export const changeEmailService= async(userId, newEmail)=>{
-	console.log("EmilChange Service: ",userId, newEmail )
-	const user= await User.findById(userId)
+	
+	const user= await getUserById(userId)
 	if(!user){
 		throw new AppError("User not found", HTTP_STATUS.NOT_FOUND)
 	}
@@ -75,15 +70,15 @@ export const changeEmailService= async(userId, newEmail)=>{
 
 //Verify email change
 export const verifyEmailChangeService= async({userId, email, otp})=>{
-	console.log("verifyEmailchange: ", userId, email)
 	const record= await verifyOtp({
 		userId,
 		email,
 		otp,
 		type: OTP_TYPES.EMAIL_CHANGE,
 	})
+
 	const newEmail= record.meta.newEmail
-	console.log("metaNewEmail: ", newEmail)
+
 	await User.findByIdAndUpdate(userId, {email: newEmail})
 
 	return {message: "Email updated successfully"}
@@ -92,10 +87,9 @@ export const verifyEmailChangeService= async({userId, email, otp})=>{
 
 //Change passsword
 export const changePasswordService= async(userId, data)=>{
-	console.log("changepass:", userId, data)
 	const {oldPassword, newPassword}= data;
 	const user = await User.findById(userId).select("+password")
-	console.log("chapassUser: ", user)
+
 	if(!user){
 		throw new AppError("User not found", HTTP_STATUS.NOT_FOUND)
 	}
@@ -138,7 +132,6 @@ if(isSame){
 	 throw new AppError("New password must be different", HTTP_STATUS.BAD_REQUEST)
 }
 	
-console.log("is amtch", isMatch)
 	const hashedPassword = await hashPassword(newPassword)
 	await User.updateOne(
 		{_id: userId},
@@ -150,20 +143,19 @@ console.log("is amtch", isMatch)
 
 //Upload profile image
 export const uploadProfileImageService= async (userId, file)=>{
-	
 	const userExist= await User.exists({_id: userId})
+
 if(!userExist){
 	throw new AppError("User not found", HTTP_STATUS.NOT_FOUND)
 }
 
 	const imageUrl= await uploadImage(file, "profile")
-	console.log("imgURL: ",imageUrl)
 
 	const user= await User.findByIdAndUpdate(userId,
 		{avatar: imageUrl.secure_url},
 		{new: true}
 	)
-console.log("imageUpUser: ",user)
+
 	return {
 		message: "Profile image updated",
 		data: user,

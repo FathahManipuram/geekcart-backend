@@ -1,5 +1,6 @@
-import { HTTP_STATUS } from "../../../common/constants/statusCode.js"
-import { successResponse } from "../../../common/helpers/response.js"
+
+import { HTTP_STATUS } from "../../../../common/constants/statusCode.js"
+import { successResponse } from "../../../../common/helpers/response.js"
 import * as userService from "../services/user.service.js"
 
 //Get profile
@@ -58,7 +59,6 @@ export const verifyEmailChangeController= async(req, res, next)=>{
 	try{
 		const userId= req.user.id
 		const {email, otp}= req.body
-		console.log("verify emailchanController", userId, email, otp)
 
 		const result= await userService.verifyEmailChangeService({userId, email, otp})
 		return successResponse(
