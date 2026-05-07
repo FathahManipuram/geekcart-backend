@@ -1,5 +1,9 @@
+import { OTP_TYPES } from "../../../../common/constants/otpTypes.js"
+import { HTTP_STATUS } from "../../../../common/constants/statusCode.js"
+import { createOtp, verifyOtp } from "../../../../common/services/otp.service.js"
 import { getUserById } from "../../../../common/services/user.services.js"
 import { AppError } from "../../../../common/utils/AppError.js"
+import { otpTemplate } from "../../../../common/utils/emailTemplates.js"
 import { comparePassword, hashPassword } from "../../../../common/utils/encryption.js"
 import { uploadImage } from "../../../../common/utils/uploadImage.js"
 import { sendEmail } from "../../../../infrastructure/services/email.service.js"
@@ -98,7 +102,7 @@ export const changePasswordService= async(userId, data)=>{
 		throw new AppError("User is blocked", HTTP_STATUS.FORBIDDEN)
 	}
 
-		if(!newPassword){
+	if(!newPassword){
 			throw new AppError("New password required", HTTP_STATUS.BAD_REQUEST)
 		}
 

@@ -1,5 +1,4 @@
 import { createOtp, resendOtp, verifyOtp } from '../../../common/services/otp.service.js'
-import User from '../../user/models/user.model.js'
 import { generateAccessToken, generateRefreshToken, jwtVerify } from "../../../common/utils/jwt.js"
 import { comparePassword, hashPassword } from "../../../common/utils/encryption.js"
 import { OTP_TYPES } from "../../../common/constants/otpTypes.js"
@@ -8,6 +7,7 @@ import { otpTemplate } from '../../../common/utils/emailTemplates.js'
 import { AppError } from '../../../common/utils/AppError.js'
 import { HTTP_STATUS } from '../../../common/constants/statusCode.js'
 import { OAuth2Client } from 'google-auth-library'
+import { User } from '../../user-side/user-profile/models/user.model.js'
 
 
 //user register

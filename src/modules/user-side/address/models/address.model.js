@@ -1,4 +1,4 @@
-import { required } from "joi"
+import Joi from "joi"
 import mongoose from "mongoose"
 
 const addressSchema= new mongoose.Schema({
@@ -52,8 +52,8 @@ const addressSchema= new mongoose.Schema({
 
   addressLabel: {
     type: String,
-    enum: ["home", "work", "other"],
-    default: "home",
+    enum: ["Home", "Work", "Other"],
+    default: "Home",
   },
 
   isDefault: {

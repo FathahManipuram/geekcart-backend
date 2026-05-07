@@ -1,5 +1,5 @@
 import mongoose from "mongoose"
-import User from "../../user/models/user.model.js"
+import { User } from "../../user-side/user-profile/models/user.model.js";
 
 const otpSchema= new mongoose.Schema({
 	userId:{type: mongoose.Schema.Types.ObjectId, ref:"USer"},

@@ -1,4 +1,4 @@
-import User from "../../modules/user/models/user.model.js"
+import { User } from "../../modules/user-side/user-profile/models/user.model.js"
 import { HTTP_STATUS } from "../constants/statusCode.js"
 import { AppError } from "../utils/AppError.js"
 
