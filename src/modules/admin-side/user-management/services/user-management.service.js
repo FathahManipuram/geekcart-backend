@@ -4,7 +4,7 @@ import { AppError } from "../../../../common/utils/AppError.js";
 import { User } from "../../../user-side/user-profile/models/user.model.js";
 
 export const getUserManagementService = async({
-	page, limit, search,
+	page, limit, search, status,
 })=>{
 	const skip = (page-1)* limit;
 	const query= search ?{
@@ -23,6 +23,14 @@ export const getUserManagementService = async({
 		},
 		],
 	} :{}
+
+	if(status==="active"){
+		query.isBlocked= false
+	}
+
+	if(status==="blocked"){
+		query.isBlocked= true
+	}
 
 	const users= await User.find(query).sort({createdAt: -1})
 	.skip(skip)
@@ -72,3 +80,26 @@ export const deleteUserService= async(userId)=>{
   };
 }
 
+
+//Block User
+export const blockUserService= async(userId)=>{
+	const user= await getUserById(userId)
+
+	if(!user){
+		throw new AppError("User not found", HTTP_STATUS.NOT_FOUND)
+	}
+
+	if(user.role==="admin"){
+		throw new AppError("Admin cannot be blocked", HTTP_STATUS.BAD_REQUEST)
+	}
+
+	user.isBlocked = !user.isBlocked
+	await user.save()
+
+	return{
+		message: user.isBlocked
+		? "User blocked successfully"
+		: "User unblocked successfully",
+		data: user
+	}
+}
