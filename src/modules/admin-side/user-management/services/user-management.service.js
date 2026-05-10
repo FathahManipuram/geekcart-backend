@@ -38,12 +38,18 @@ export const getUserManagementService = async({
 	.limit(limit);
 
 	const totalUsers= await User.countDocuments(query)
+	const activeUsers= await User.countDocuments({...query, isBlocked: false})
+	const blockedUsers= await User.countDocuments({...query, isBlocked: true})
+	const totalAdmins= await User.countDocuments({...query, role:"admin"})
 
 	return {
 		message: "Users fetched successfully",
 		data: {
 			users,
 			totalUsers,
+			activeUsers,
+			blockedUsers,
+			totalAdmins,
 			totalPages: Math.ceil(totalUsers/limit),
 			currentPage: page,
 
