@@ -2,7 +2,7 @@
 
 import { HTTP_STATUS } from "../../../../common/constants/statusCode.js";
 import { successResponse } from "../../../../common/helpers/response.js";
-import { blockUserService, deleteUserService, getUserByIdService, getUserManagementService } from "../services/user-management.service.js";
+import { blockUserService, createUserService, deleteUserService, getUserByIdService, getUserManagementService, updateUserService } from "../services/user-management.service.js";
 
 export const getUserManagementController= async(req, res, next)=>{
 
@@ -71,6 +71,42 @@ export const blockUserController= async(req, res, next)=>{
 		const {userId}= req.params
 		const result= await blockUserService(userId)
 
+		return successResponse(
+			res,
+			HTTP_STATUS.OK,
+			result.message,
+			result.data
+		)
+	}catch(err){
+		next(err)
+	}
+}
+
+
+//Create user
+export const createUserController= async(req, res, next)=>{
+	try{
+		const result= await createUserService(req.body)
+
+		return successResponse(
+			res,
+			HTTP_STATUS.OK,
+			result.message,
+			result.data
+		)
+	}catch(err){
+		next(err)
+	}
+}
+
+//Update user
+export const updateUserController= async(req, res, next)=>{
+	try{
+		console.log("req, ", req.params)
+		const {userId} = req.params
+		console.log("id",userId)
+
+		const result= await updateUserService(userId, req.body)
 		return successResponse(
 			res,
 			HTTP_STATUS.OK,
