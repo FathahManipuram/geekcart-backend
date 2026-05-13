@@ -61,7 +61,8 @@ export const changeEmailService= async(userId, newEmail)=>{
 		type: OTP_TYPES.EMAIL_CHANGE,
 		meta: {newEmail},
 	})
-
+	
+console.log("generatedOtp: ", otp)
 
 	await sendEmail({
 		to: newEmail,
@@ -74,18 +75,23 @@ export const changeEmailService= async(userId, newEmail)=>{
 
 //Verify email change
 export const verifyEmailChangeService= async({userId, email, otp})=>{
+	console.log("id email otp: ", userId, email, otp)
 	const record= await verifyOtp({
 		userId,
 		email,
 		otp,
 		type: OTP_TYPES.EMAIL_CHANGE,
 	})
+	console.log("userServuxceRecord: ", record)
 
 	const newEmail= record.meta.newEmail
 
-	await User.findByIdAndUpdate(userId, {email: newEmail})
+	const updatedUser= await User.findByIdAndUpdate(userId, {email: newEmail}, {new: true})
 
-	return {message: "Email updated successfully"}
+	return {
+		message: "Email updated successfully",
+		data: updatedUser
+		}
 }
 
 
@@ -110,15 +116,19 @@ export const changePasswordService= async(userId, data)=>{
 	
 		const hashedPassword= await hashPassword(newPassword)
 
-		await User.updateOne(
-			{_id: userId},
+		const updatedUser= await User.findByIdAndUpdate(
+			userId,
 			{
 				$set: {password: hashedPassword,
 					provider: "local"
 				}
-				}
+				},
+				{new: true}
 		)
-		return {message: "Password set successfully"}
+		return {
+			message: "Password set successfully",
+			data: updatedUser,
+		}
 	}
 
 if(!oldPassword){
@@ -137,16 +147,24 @@ if(isSame){
 }
 	
 	const hashedPassword = await hashPassword(newPassword)
-	await User.updateOne(
-		{_id: userId},
-		{$set: {password: hashedPassword}}
+	const updatedUser= await User.findByIdAndUpdate(
+		userId,
+		{$set: {password: hashedPassword}},
+		{new: true}
 	)
 	
-	return {message: "Password changed successfully"}
+	return {
+		message: "Password changed successfully",
+		data: updatedUser,
+		}
 }
 
 //Upload profile image
 export const uploadProfileImageService= async (userId, file)=>{
+	if(!file){
+		throw new AppError("Profile image is required", HTTP_STATUS.BAD_REQUEST)
+	}
+	
 	const userExist= await User.exists({_id: userId})
 
 if(!userExist){
@@ -155,10 +173,11 @@ if(!userExist){
 
 	const imageUrl= await uploadImage(file, "profile")
 
-	const user= await User.findByIdAndUpdate(userId,
-		{avatar: imageUrl.secure_url},
-		{new: true}
-	)
+	const user = await User.findByIdAndUpdate(
+    userId,
+    { avatar: imageUrl.secure_url },
+    { returnDocument: "after" },
+  );
 
 	return {
 		message: "Profile image updated",

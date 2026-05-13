@@ -1,5 +1,5 @@
-import { HTTP_STATUS } from "../constants/statusCode"
-import { AppError } from "../utils/AppError"
+import { HTTP_STATUS } from "../constants/statusCode.js"
+import { AppError } from "../utils/AppError.js"
 
 const roleMiddleware= (...allowedRoles)=>{
 	return (req, res, next)=>{

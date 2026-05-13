@@ -2,7 +2,7 @@ import jwt from "jsonwebtoken"
 
 export const generateAccessToken= (user)=>{
 return jwt.sign({id: user._id, role: user.role}, process.env.JWT_SECRET,{
-	expiresIn:"1d"
+	expiresIn:"15m"
 })
 }
 
@@ -12,6 +12,6 @@ export const generateRefreshToken= (user)=>{
 	})
 }
 
-export const jwtVerify=(refreshToken, secretCode)=>{
-	return jwt.verify(refreshToken, secretCode)
+export const jwtVerify=(refreshToken, secret)=>{
+	return jwt.verify(refreshToken, secret)
 }

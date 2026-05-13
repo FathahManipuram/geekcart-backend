@@ -5,25 +5,25 @@ import { confirmPassword, email, fullName, password } from "../../../common/vali
 
 //Register
 export const registerSchema = Joi.object({
-	fullName,
-	email,
-	password,
-	confirmPassword: confirmPassword("password"),
+  fullName: fullName.required(),
+  email: email.required(),
+  password: password.required(),
+  confirmPassword: confirmPassword("password").required(),
 });
 
 //Login
-export const loginSchema= Joi.object({
-	email,
-	password: Joi.string().required()
-})
+export const loginSchema = Joi.object({
+  email: email.required(),
+  password: Joi.string().required(),
+});
 
 //Forget password
 export const forgotPasswordSchema = Joi.object({
-  email,
+  email: email.required(),
 });
 
 //Reset password
 export const resetPasswordSchema = Joi.object({
-  password,
-  confirmPassword: confirmPassword("password"),
+  newPassword: password.required(),
+  email: email.required(),
 });

@@ -29,7 +29,7 @@ const authMiddleware= async(req, res, next)=>{
 
 		if(err.name==="TokenExpiredError"){
 			return next(
-				new AppError("Token expired, plese login again", HTTP_STATUS.UNAUTHORIZED)
+				new AppError("Token expired, please login again", HTTP_STATUS.UNAUTHORIZED)
 			)
 		}
 		return next(err)

@@ -59,6 +59,7 @@ export const verifyEmailChangeController= async(req, res, next)=>{
 	try{
 		const userId= req.user.id
 		const {email, otp}= req.body
+		console.log("req", req.body)
 
 		const result= await userService.verifyEmailChangeService({userId, email, otp})
 		return successResponse(
@@ -98,6 +99,7 @@ export const changePasswordController = async (req, res, next)=>{
 			res,
 			HTTP_STATUS.OK,
 			result.message,
+			result.data
 		)
 	} catch(err){
 		next(err)

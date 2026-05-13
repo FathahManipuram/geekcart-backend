@@ -7,7 +7,7 @@ export const email = Joi.string()
   .lowercase()
   .trim()
   .max(100)
-  .required();
+
 
   //password
   export const password = Joi.string()
@@ -17,18 +17,17 @@ export const email = Joi.string()
   .pattern(/[A-Z]/)
   .pattern(/[0-9]/)
   .pattern(/[@$!%*?&]/)
-  .required();
+
 
   //confirmPassword
   export const confirmPassword = (ref = "password") =>
-  Joi.string().valid(Joi.ref(ref)).required().messages({ "any.only":"Password do not match"});
+  Joi.string().valid(Joi.ref(ref)).messages({ "any.only":"Password do not match"});
 
 // Fullname
 export const fullName = Joi.string()
   .min(3)
   .max(30)
   .trim()
-  .required();
 
   //Phone number
   export const phoneNumber = Joi.string()
@@ -44,3 +43,20 @@ export const fullName = Joi.string()
   export const dateOfBirth = Joi.date()
   .max("now")
   .allow(null, "");
+
+  //Otp
+  export const otp = Joi.string()
+    .length(6)
+    .pattern(/^[0-9]+$/)
+    .message({
+      "string.length": "OTP must be exactly 6 digits",
+      "string.pattern.base": "OTP must only contain numbers",
+    });
+  
+
+  //category name
+  export const categoryName= Joi.string()
+    .trim()
+    .min(2)
+    .max(100)
+    

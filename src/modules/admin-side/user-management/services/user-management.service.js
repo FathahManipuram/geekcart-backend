@@ -74,13 +74,18 @@ export const getUserByIdService= async(userId)=>{
 
 //Delete User
 export const deleteUserService= async(userId)=>{
-	console.log("userid: ", userId)
-	const user= await User.findByIdAndDelete(userId)
-	console.log("DeletServiceUSer: ", user)
+	const user= await getUserById(userId)
 
 	if(!user){
 		throw new AppError("User not found", HTTP_STATUS.NOT_FOUND)
 	}
+
+	if(user.role==="admin"){
+		throw new AppError("Admin users cannot be deleted", HTTP_STATUS.FORBIDDEN)
+	}
+	
+	await User.findByIdAndDelete(userId)
+	
 
 	return {
     message: "User deleted successfully",
@@ -105,8 +110,8 @@ export const blockUserService= async(userId)=>{
 
 	return{
 		message: user.isBlocked
-		? "User blocked successfully"
-		: "User unblocked successfully",
+		? "User is blocked"
+		: "User is unblocked",
 		data: user
 	}
 }

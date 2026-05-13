@@ -42,7 +42,7 @@ console.log("ResControl: ", result)
 export const updateAddressController= async(req, res, next)=>{
 	try{
 		const userId= req.user.id
-		const addressId= req.params.id
+		const addressId= req.params.addressId
 		console.log("updateAddreContro: ", userId, addressId)
 		const result= await updateAddressService(userId, addressId, req.body)
 		return successResponse(
@@ -61,8 +61,8 @@ export const updateAddressController= async(req, res, next)=>{
 export const removeAddressController= async(req, res, next)=>{
 try{
 	const userId= req.user.id
-	const {addressId}= req.params
-
+	const addressId= req.params.addressId
+console.log(userId, addressId)
 	const result= await removeAddressService(userId, addressId)
 	return successResponse(
 		res, HTTP_STATUS.OK,

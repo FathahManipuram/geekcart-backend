@@ -33,7 +33,7 @@ export const createAddressService= async(userId, data)=>{
 
 
 //Update Address
-export const updateAddressService= async(userId, addressIdParamSchema, data)=>{
+export const updateAddressService= async(userId, addressId, data)=>{
 	if(data.isDefault){
 		await Address.updateMany({userId}, {$set: {isDefault: false}})
 	}
@@ -56,8 +56,8 @@ export const updateAddressService= async(userId, addressIdParamSchema, data)=>{
 }
 
 
-export const removeAddressService= async(userId, AddressId)=>{
-
+export const removeAddressService= async(userId, addressId)=>{
+console.log(userId, addressId)
 const address= await Address.findOneAndDelete({
 	_id: addressId,
 	userId

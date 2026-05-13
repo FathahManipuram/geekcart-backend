@@ -2,13 +2,14 @@ import mongoose from "mongoose"
 import { User } from "../../user-side/user-profile/models/user.model.js";
 
 const otpSchema= new mongoose.Schema({
-	userId:{type: mongoose.Schema.Types.ObjectId, ref:"USer"},
-	email: {type: String},
+	userId:{type: mongoose.Schema.Types.ObjectId, ref:"User"},
+	email: {type: String, required: true},
 	otp:{type: String, required:true},
 	type:{type: String, 
 		enum:["email-verify", "password-reset", "email-change"],
 		required: true,
 	},
+	payload: {type: Object, default: {},},
 	meta: {
 		type: Object,
 		default: {},
@@ -16,9 +17,9 @@ const otpSchema= new mongoose.Schema({
 	attemptCount: {type: Number, default:0},
 	maxAttempt: {type: Number, default:5},
 
-	expiresAt: {type: Date, require:true},
+	expiresAt: {type: Date, required:true},
 },
-{Timestamp: true}
+{timestamps: true}
 );
 
 
