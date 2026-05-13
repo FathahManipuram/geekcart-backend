@@ -1,0 +1,35 @@
+import mongoose from "mongoose"
+
+const categorySchema=  new Mongoose.Schema({
+	name: {
+		type: String,
+		required: true,
+		trim: true,
+		unique: true,
+		maxlength: 100,
+	},
+
+	slug: {
+		type: String,
+		required: true,
+		unique: true,
+		lowercase: true,
+		trim: true,
+	},
+	isActive: {
+		type: Boolean,
+		default: true,
+	},
+	isDeleted: {
+		type: Boolean,
+		default: false,
+	},
+	deletedAt: {
+		type: Date,
+		default: null,
+	}
+},
+{timestamps: true}
+)
+
+export const Category= mongoose.model("Category", categorySchema)
