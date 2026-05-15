@@ -1,4 +1,4 @@
-export const buildQuery= ({
+export const buildQuery= async ({
 	model,
 	search="",
 	searchFields=[],
@@ -54,6 +54,4 @@ export const buildQuery= ({
 			hasPrevPage: currentPage > 1,
 		}
 	}
-
-
 }

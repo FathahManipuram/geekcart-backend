@@ -1,5 +1,5 @@
 import Joi from "joi";
-import { categoryName } from "../../../../common/validation/base.validation";
+import { categoryName } from "../../../../common/validation/base.validation.js";
 
 
 export const createCategorySchema= Joi.object({

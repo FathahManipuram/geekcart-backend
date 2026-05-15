@@ -1,9 +1,14 @@
 import { Router } from "express";
-import { validate } from "../../../../common/middleware/validate.middleware";
-import { createCategorySchema } from "../validations/category.validation";
-import { createCategoryController } from "../controllers/category.controller";
+import { validate } from "../../../../common/middleware/validate.middleware.js";
+import { createCategorySchema, updateCategorySchema } from "../validations/category.validation.js";
+import { createCategoryController, fetchCategoriesController, updateCategoriesController } from "../controllers/category.controller.js";
 
 
 const router= Router()
 
-router.post("/category/create", validate(createCategorySchema), createCategoryController)
+router.get("/", fetchCategoriesController)
+router.post("/", validate(createCategorySchema), createCategoryController)
+router.patch("/:categoryId", validate(updateCategorySchema), updateCategoriesController)
+
+
+export default router
