@@ -50,3 +50,18 @@ export const updateCategoriesController= async(req, res, next)=>{
 		next(err)
 	}
 }
+
+// Soft delete
+export const deleteCategoryController= async(req, res, next)=>{
+	try{
+		const categoryId= req.params.categoryId
+		const result= await categoryService.deleteCategoryService(categoryId)
+		return successResponse(
+			res,
+			HTTP_STATUS.OK,
+			result.message
+		)
+	}catch(err){
+		next(err)
+	}
+}

@@ -22,21 +22,28 @@ export const fetchCategoriesService= async({
 	if(status === "inactive"){
 		filters.isActive= false
 	}
-
+console.log("filters: ", filters)
 	const result= await buildQuery({
 		model: Category,
 		search,
 		searchFields:["name"],
 		limit,
+		page,
 		sort: {createdAt: -1},
 		filters,
 	})
+
+const activeCategories= await Category.countDocuments({
+	isDeleted: false,
+	isActive: true
+})
 
 	return {
 		message: "Categories fetched successfully",
 		data: {
 			categories: result.items,
 			pagination: result.pagination,
+			activeCategories,
 		}
 	}
 }
@@ -50,7 +57,7 @@ export const createCategoryService= async(data)=>{
 	const slug= generateSlug(normalizedName)
 	const existingCategory= await Category.findOne({
 		name: {
-			$regex: `^${normalizedName}`,
+			$regex: `^${normalizedName}$`,
 			$options:"i",
 		}
 	})
@@ -111,5 +118,22 @@ export const updateCategoryService = async (categoryId, data)=>{
 return {
 	message: "Category updated successfully",
 	data: category
+}
+}
+
+
+//Soft delete
+export const deleteCategoryService= async(categoryId)=>{
+const category= await Category.findById(categoryId)
+
+if(!category || category.isDeleted){
+	throw new AppError("Category not found", HTTP_STATUS.NOT_FOUND)
+}
+
+  await Category.updateOne({_id: categoryId}, {
+	isDeleted: true
+})
+return {
+	message: "category deleted successfully"
 }
 }
