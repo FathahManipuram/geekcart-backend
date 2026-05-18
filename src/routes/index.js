@@ -7,6 +7,7 @@ import addressRoutes from "../modules/user-side/address/routes/address.routes.js
 //Admin
 import userManagementRoutes from "../modules/admin-side/user-management/routes/user-management.routes.js"
 import categoryManagementRoutes from "../modules/admin-side/category-management/routes/category.routes.js"
+import subcategoryManagementRoutes from "../modules/admin-side/subcategory-management/routes/subcategory.routes.js"
 
 
 const router= Router()
@@ -19,4 +20,7 @@ router.use("/account", addressRoutes)
 //Admin Routes
 router.use("/admin", userManagementRoutes)
 router.use("/admin/categories", categoryManagementRoutes)
+router.use("/admin/subcategories", subcategoryManagementRoutes)
+
+
 export default router

@@ -59,4 +59,5 @@ export const fullName = Joi.string()
     .trim()
     .min(2)
     .max(100)
-    
+
+  
