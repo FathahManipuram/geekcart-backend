@@ -9,7 +9,8 @@ export const buildQuery= async ({
 	populate="",
 	select="",
 })=>{
-	const query= {...filters}
+	const query= {...filters,}
+
 	if(search && search.trim() && searchFields.length > 0){
 		query.$or= searchFields.map((field)=> ({
 			[field]: {
@@ -38,7 +39,7 @@ export const buildQuery= async ({
 	}
 
 	if(populate){
-		mongoQuery.populate(populate)
+		mongoQuery = mongoQuery.populate(populate);
 	}
 
 	const items= await mongoQuery;

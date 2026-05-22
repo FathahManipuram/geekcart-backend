@@ -1,12 +1,13 @@
 import {v2 as cloudinary} from 'cloudinary'
 import { HTTP_STATUS } from "../constants/statusCode.js"
+import { AppError } from './AppError.js'
 
-export const deleteImageFromCloudinary = async(imageUrl)=>{
+export const deleteImageFromCloudinary = async(imageUrl="")=>{
 	if(!imageUrl) return null
 
 	try{
 		const urlParts= imageUrl.split("/upload/")
-		if(urlParts < 2){
+		if(urlParts.length < 2){
 			throw new AppError("Invalid cloudinary URL", HTTP_STATUS.BAD_REQUEST)
 		}
 		const pathWithVersion= urlParts[1]

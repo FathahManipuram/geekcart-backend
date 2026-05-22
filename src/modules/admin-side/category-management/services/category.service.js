@@ -59,7 +59,8 @@ export const createCategoryService= async(data)=>{
 		name: {
 			$regex: `^${normalizedName}$`,
 			$options:"i",
-		}
+		},
+		isDeleted: false,
 	})
 
 	if (existingCategory) {
@@ -131,7 +132,8 @@ if(!category || category.isDeleted){
 }
 
   await Category.updateOne({_id: categoryId}, {
-	isDeleted: true
+	isDeleted: true,
+	deletedAt: new Date(),
 })
 return {
 	message: "category deleted successfully"

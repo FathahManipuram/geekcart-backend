@@ -5,14 +5,14 @@ const categorySchema=  new mongoose.Schema({
 		type: String,
 		required: true,
 		trim: true,
-		unique: true,
+		// unique: true,
 		maxlength: 100,
 	},
 
 	slug: {
 		type: String,
 		required: true,
-		unique: true,
+		// unique: true,
 		lowercase: true,
 		trim: true,
 	},
@@ -30,6 +30,17 @@ const categorySchema=  new mongoose.Schema({
 	}
 },
 {timestamps: true}
+)
+
+categorySchema.index(
+	{
+		name: 1,
+		isDeleted: 1
+	},
+	{
+		unique: true
+	}
+
 )
 
 export const Category= mongoose.model("Category", categorySchema)
