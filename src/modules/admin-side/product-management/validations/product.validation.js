@@ -1,5 +1,5 @@
 import Joi from "joi";
-import { categoryName, color, description, fabric, images, price, productName, salePrice, size, sku, sleeve, stock } from "../../../../common/validation/base.validation.js";
+import { categoryName, color, costPrice, description, fabric, images, price, productName, salePrice, size, sku, sleeve, stock } from "../../../../common/validation/base.validation.js";
 import { Variant } from "../models/variant.model.js";
 
 
@@ -8,6 +8,7 @@ const variantSchema= Joi.object({
   color: color.required(),
   sku: sku.required(),
   stock: stock.required(),
+  costPrice: costPrice.required(),
   price: price.required(),
   salePrice: salePrice.optional().allow(null, ""),
   isDefault: Joi.boolean().optional(),

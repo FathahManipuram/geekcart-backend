@@ -48,13 +48,14 @@ export const categoryName = Joi.string().trim().min(2).max(100);
 export const productName = Joi.string().trim().min(2).max(150);
 
 // Description
-export const description = Joi.string().trim().min(10);
+export const description = Joi.string().trim().min(10).max(1000);
 
 //variant
 export const size = Joi.string();
 export const color = Joi.string();
 export const sku = Joi.string();
 export const stock = Joi.number().min(0);
+export const costPrice= Joi.number().min(0)
 export const price = Joi.number().min(0);
 export const salePrice = Joi.number().min(0).allow(null)
 export const sleeve= Joi.string()
