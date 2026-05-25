@@ -52,6 +52,9 @@ export const description = Joi.string().trim().min(10).max(1000);
 
 //variant
 export const size = Joi.string();
+export const images= Joi.array()
+    .items(Joi.string())
+    .min(3)
 export const color = Joi.string();
 export const sku = Joi.string();
 export const stock = Joi.number().min(0);
@@ -62,4 +65,3 @@ export const sleeve= Joi.string()
 export const fabric= Joi.string()
 export const isDefault= Joi.boolean()
 export const isActive= Joi.boolean()
-export const images= Joi.array()

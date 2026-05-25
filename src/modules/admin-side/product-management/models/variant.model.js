@@ -9,13 +9,21 @@ const variantSchema = new Schema(
       required: true,
       index: true,
     },
+    images: {
+      type: [String],
+      required: true,
+      validate: {
+        validator(value) {
+          return Array.isArray(value) && value.length >= 3;
+        },
+        message: "At least 3 images are required for this color variant.",
+      },
+    },
     sku: {
       type: String,
       required: true,
-      unique: true,
       trim: true,
       uppercase: true,
-      index: true,
     },
     color: { type: String, required: true, trim: true, maxlength: 50 },
     size: {
@@ -23,7 +31,7 @@ const variantSchema = new Schema(
       required: true,
       trim: true,
       uppercase: true,
-      maxlength: 5,
+      maxlength: 15,
     },
     price: { type: Number, required: true, min: 0 },
     salePrice: {
@@ -33,12 +41,9 @@ const variantSchema = new Schema(
       validate: {
         validator(value) {
           if (value === null || value === undefined) return true;
-
           const currentPrice =
-            this.price ??
-            (this.getUpdate ? this.getUpdate().$set?.price : undefined);
-          if (!currentPrice) return value <= this.get?.("price");
-
+            this.price !== undefined ? this.price : this.get?.("price");
+          if (currentPrice === undefined || currentPrice === null) return true;
           return value <= currentPrice;
         },
         message: "Sale price cannot exceed the regular retail price.",
@@ -48,7 +53,7 @@ const variantSchema = new Schema(
       type: Number,
       min: 0,
       required: true,
-      select: false,
+      // select: false,
     },
     stock: { type: Number, required: true, min: 0, default: 0 },
     lowStockThreshold: { type: Number, min: 0, default: 5 },
@@ -60,15 +65,16 @@ const variantSchema = new Schema(
 );
 
 variantSchema.index(
-  {
-    product: 1,
-    color: 1,
-    size: 1,
-  },
+  {sku: 1},
   {
     unique: true,
     partialFilterExpression: { isDeleted: false },
   },
+);
+
+variantSchema.index(
+  { product: 1, color: 1, size: 1 },
+  { unique: true, partialFilterExpression: { isDeleted: false } }
 );
 
 variantSchema.index({

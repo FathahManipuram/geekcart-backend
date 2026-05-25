@@ -1,9 +1,15 @@
 import Joi from "joi";
 import { categoryName, color, costPrice, description, fabric, images, price, productName, salePrice, size, sku, sleeve, stock } from "../../../../common/validation/base.validation.js";
-import { Variant } from "../models/variant.model.js";
 
 
-const variantSchema= Joi.object({
+const variantGroupValidationSchema = Joi.object({
+  color: color.required(),
+  sizes: Joi.array().items(size).min(1).required(),
+  images: Joi.array().items(Joi.string()).optional(),
+});
+
+
+const variantSchema = Joi.object({
   size: size.required(),
   color: color.required(),
   sku: sku.required(),
@@ -11,9 +17,10 @@ const variantSchema= Joi.object({
   costPrice: costPrice.required(),
   price: price.required(),
   salePrice: salePrice.optional().allow(null, ""),
+  images: Joi.array().items(Joi.string()).optional(),
   isDefault: Joi.boolean().optional(),
   isActive: Joi.boolean().optional(),
-})
+});
 
 export const createProductSchema = Joi.object({
   name: productName.required().messages({
@@ -22,8 +29,8 @@ export const createProductSchema = Joi.object({
   description: description.required().messages({
     "string.empty": "Description is required",
   }),
-  coverImage: Joi.any().optional(),
-  galleryImages: images.optional(),
+  // coverImage: Joi.any().optional(),
+  coverImage: Joi.alternatives().try(Joi.string(), Joi.object()).optional(),
   category: categoryName.required(),
   subcategory: categoryName.required(),
 
@@ -34,10 +41,6 @@ export const createProductSchema = Joi.object({
     phone: Joi.string().allow("").optional(),
   }).optional(),
 
-  // defaultAttributes: Joi.object({
-  //   sleeve: sleeve.allow("").optional(),
-  //   fabric: fabric.allow("").optional(),
-  // }).optional(),
   sleeve: sleeve.optional().allow(""),
   fabric: fabric.optional().allow(""),
   isReturnable: Joi.boolean().optional(),
@@ -47,21 +50,24 @@ export const createProductSchema = Joi.object({
   isLimited: Joi.boolean().optional(),
   isActive: Joi.boolean().optional(),
 
-  // selectedSizes: Joi.array().items(Joi.string()).optional(),
-  // selectedColor: Joi.string().allow("").optional(),
+  variantGroups: Joi.array()
+    .items(variantGroupValidationSchema)
+    .min(1)
+    .required(),
 
   variants: Joi.array()
     .items(variantSchema)
     .min(1)
     .required()
     .messages({ "array.min": "At least one variant is required" }),
+}).options({
+  abortEarly: false,
 });
 
 export const updateProductSchema=Joi.object({
   name: productName.optional(),
   description: description.optional(),
   coverImage: Joi.any().optional(),
-  galleryImages: images.optional(),
   category: categoryName.optional(),
   subcategory: categoryName.optional(),
 

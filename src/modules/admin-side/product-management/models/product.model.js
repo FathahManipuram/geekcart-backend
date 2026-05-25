@@ -31,15 +31,6 @@ const productSchema = new Schema(
       phone: { type: String, trim: true, default: "" },
     },
     coverImage: { type: String, default: "", trim: true },
-    galleryImages: {
-      type: [String],
-      validate: {
-        validator(value) {
-          return Array.isArray(value) && value.length >= 3;
-        },
-        message: "At least 3 images are required.",
-      },
-    },
     isReturnable: { type: Boolean, default: true },
     returnWindowDays: {
       type: Number,
