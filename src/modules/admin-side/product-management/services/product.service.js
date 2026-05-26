@@ -232,14 +232,10 @@ if (search.trim()) {
     .sort({ createdAt: -1 })
     .lean();
 
-  /**
-   * Product IDs
-   */
+
   const productIds = products.map((product) => product._id);
 
-  /**
-   * All Variants
-   */
+ 
   const variants = await Variant.find({
     product: {
       $in: productIds,
@@ -248,28 +244,20 @@ if (search.trim()) {
     isDeleted: false,
   }).lean();
 
-  /**
-   * Format Products
-   */
+ 
   const formattedProducts = products.map((product) => {
-    /**
-     * Product Variants
-     */
+  
     const productVariants = variants.filter(
       (variant) => variant.product.toString() === product._id.toString(),
     );
 
-    /**
-     * Total Stock
-     */
+  
     const stock = productVariants.reduce(
       (total, variant) => total + (variant.stock || 0),
       0,
     );
 
-    /**
-     * Lowest Price
-     */
+
     const price =
       productVariants.length > 0
         ? Math.min(
@@ -279,9 +267,7 @@ if (search.trim()) {
           )
         : 0;
 
-    /**
-     * Status
-     */
+    
     let status = "in-stock";
 
     if (stock === 0) {
@@ -290,9 +276,7 @@ if (search.trim()) {
       status = "low-stock";
     }
 
-    /**
-     * Sizes
-     */
+   
     const sizes = [...new Set(productVariants.map((variant) => variant.size))];
 
     return {
