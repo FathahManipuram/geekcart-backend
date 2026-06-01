@@ -1,304 +1,265 @@
 // import { Cart } from "../models/cart.model.js";
 
-import { HTTP_STATUS } from "../../../../common/constants/statusCode";
-import { Cart } from "../models/cart.model";
+import { HTTP_STATUS } from "../../../../common/constants/statusCode.js";
+import { AppError } from "../../../../common/utils/AppError.js";
+import { Variant } from "../../../admin-side/product-management/models/variant.model.js";
+import { calculateCartSummury } from "../helpers/cart.helper.js";
+import { Cart } from "../models/cart.model.js";
 
-// import { Product } from "../../product-management/models/product.model.js";
-
-// import { Variant } from "../../product-management/models/variant.model.js";
-
-// import { AppError } from "../../../../common/utils/AppError.js";
-
-// import { HTTP_STATUS } from "../../../../common/constants/statusCode.js";
-
-// /**
-//  * Add To Cart
-//  */
-// export const addToCartService =
-//   async (
-//     userId,
-//     data
-//   ) => {
-//     const {
-//       productId,
-
-//       variantId,
-
-//       quantity,
-//     } = data;
-
-//     /**
-//      * Check Product
-//      */
-//     const existingProduct =
-//       await Product.findOne({
-//         _id: productId,
-
-//         isDeleted: false,
-//       });
-
-//     if (
-//       !existingProduct
-//     ) {
-//       throw new AppError(
-//         "Product not found",
-
-//         HTTP_STATUS.NOT_FOUND
-//       );
-//     }
-
-//     /**
-//      * Check Variant
-//      */
-//     const existingVariant =
-//       await Variant.findById(
-//         variantId
-//       );
-
-//     if (
-//       !existingVariant
-//     ) {
-//       throw new AppError(
-//         "Variant not found",
-
-//         HTTP_STATUS.NOT_FOUND
-//       );
-//     }
-
-//     /**
-//      * Find Cart
-//      */
-//     let cart =
-//       await Cart.findOne({
-//         userId,
-//       });
-
-//     /**
-//      * Create Cart
-//      */
-//     if (!cart) {
-//       cart =
-//         await Cart.create({
-//           userId,
-
-//           items: [],
-
-//           summary: {
-//             subtotal: 0,
-
-//             discount: 0,
-
-//             total: 0,
-//           },
-//         });
-//     }
-
-//     /**
-//      * Existing Item
-//      */
-//     const existingCartItem =
-//       cart.items.find(
-//         (item) =>
-//           item.variantId.toString() ===
-//           variantId
-//       );
-
-//     /**
-//      * Increase Quantity
-//      */
-//     if (
-//       existingCartItem
-//     ) {
-//       existingCartItem.quantity +=
-//         quantity;
-//     } else {
-//       /**
-//        * Add New Item
-//        */
-//       cart.items.push({
-//         productId,
-
-//         variantId,
-
-//         quantity,
-
-//         priceSnapshot:
-//           existingVariant.price,
-//       });
-//     }
-
-//     /**
-//      * Recalculate Summary
-//      */
-//     const subtotal =
-//       cart.items.reduce(
-//         (
-//           total,
-//           item
-//         ) =>
-//           total +
-//           item.priceSnapshot *
-//             item.quantity,
-
-//         0
-//       );
-
-//     cart.summary.subtotal =
-//       subtotal;
-
-//     cart.summary.discount =
-//       0;
-
-//     cart.summary.total =
-//       subtotal;
-
-//     /**
-//      * Save Cart
-//      */
-//     await cart.save();
-
-//     return {
-//       message:
-//         "Item added to cart",
-
-//       data: cart,
-//     };
-//   };
 
 // Add to cart
-export const addToCartService = async (userId, data) => {
-  const { productId, variantId, quantity } = data;
+export const addToCartService = async (userId, variantId, quantity) => {
 
-  const [existingProduct, existingVariant, cart] = await Promise.all([
-    Product.findOne({ _id: productId, isDeleted: false }),
-    Variant.findById(variantId),
-    Cart.findOne({ userId }),
+  if (quantity < 1) {
+    throw new AppError("Quantity must be at least 1", HTTP_STATUS.BAD_REQUEST);
+  }
+
+  if (quantity > 5) {
+    throw new AppError("You can add a maximum of 5 units per item.", HTTP_STATUS.BAD_REQUEST);
+  }
+
+const [variant, cart] = await Promise.all([
+    Variant.findOne({
+      _id: variantId,
+      isDeleted: false,
+      isActive: true,
+    }).populate("product", "name"),
+    
+    Cart.findOne({ userId })
   ]);
 
-  if (!existingProduct) {
-    throw new AppError(
-      "Product not found or unavailable",
-      HTTP_STATUS.NOT_FOUND,
-    );
-  }
+if(!variant){
+  throw new AppError("Variant not found Or variant disabled", HTTP_STATUS.NOT_FOUND)
+}
 
-  if (!existingVariant) {
-    throw new AppError("Product variant not found", HTTP_STATUS.NOT_FOUND);
-  }
+if(variant.stock < quantity){
+  throw new AppError(`Insufficient stock. Only ${variant.stock} units available.`, HTTP_STATUS.BAD_REQUEST);
+}
 
-  if (existingVariant.productId.toString() !== productId) {
-    throw new AppError(
-      "Invalid product and variant combination",
-      HTTP_STATUS.BAD_REQUEST,
-    );
-  }
 
-  let userCart = cart;
-  if (!userCart) {
-    userCart = new Cart({
+let activeCart= cart
+
+if(!activeCart){
+  activeCart = await Cart.create({
       userId,
       items: [],
-      summery: { subtotal: 0, discount: 0, total: 0 },
     });
-  }
+}
 
-  const existingCartItem = userCart.items.find(
-    (item) => item.variantId.toString() === variantId,
+
+const existingItemIndex = activeCart.items.findIndex(
+    (item) => item.variantId.toString() === variantId.toString()
   );
-  const currentCartQuantity = existingCartItem ? existingCartItem.quantity : 0;
-  const targetQuantity = currentCartQuantity + quantity;
 
-  const isNewItem = !existingCartItem;
+// const isNewItem= existingItemIndex === -1
 
-  if (isNewItem && userCart.items.length >= 15) {
-    throw new AppError(
-      "Cart limit reached. You can only have a maximum of 15 unique items in your cart.",
-      HTTP_STATUS.BAD_REQUEST,
-    );
-  }
+if(existingItemIndex < 0 && activeCart.items.length >=10){
+  throw new AppError(
+    "Your cart cannot contain more than 10 unique products.",
+    HTTP_STATUS.BAD_REQUEST,
+  );
+}
 
-  if (targetQuantity > 5) {
-    throw new AppError(
-      `Purchase limit exceeded. You can only add a maximum of 5 units per item variant. (You already have ${currentCartQuantity} in cart)`,
-      HTTP_STATUS.BAD_REQUEST,
-    );
-  }
+if (existingItemIndex > -1) {
+    const existingItem = activeCart.items[existingItemIndex];
+    const newQuantity = existingItem.quantity + quantity;
 
-  if (targetQuantity > existingVariant.stock) {
-    throw new AppError(
-      `Insufficient stock. Only ${existingVariant.stock} unit(s) available.`,
-      HTTP_STATUS.BAD_REQUEST,
-    );
-  }
+    if (newQuantity > 5) {
+      throw new AppError(
+        "You can add a maximum of 5 units per item.",
+        HTTP_STATUS.BAD_REQUEST,
+      );
+    }
+    if (newQuantity > variant.stock) {
+      throw new AppError(
+        `Cannot add more items. Total quantity would exceed available stock (${variant.stock}).`,
+        HTTP_STATUS.BAD_REQUEST
+      );
+    }
 
-  if (existingCartItem) {
-    existingCartItem.quantity = targetQuantity;
-  } else {
-    userCart.items.push({
-      productId,
-      variantId,
+
+activeCart.items[existingItemIndex].quantity = newQuantity;
+
+}else{
+  activeCart.items.push({
+      productId: variant.product._id,
+      variantId: variant._id,
+      name: variant.product.name,
+      image: variant.images?.[0] || "",
+      color: variant.color,
+      size: variant.size,
+      price: variant.price,
+      salePrice: variant.salePrice,
       quantity,
-      priceSnapshot: existingVariant.price,
+      stock: variant.stock,
     });
-  }
+}
 
-  const subtotal = userCart.items.reduce((total, item) => {
-    return total + item.priceSnapshot * item.quantity;
-  }, 0);
+activeCart.summary = calculateCartSummury(activeCart.items)
 
-  userCart.summary.subtotal = subtotal;
-  userCart.summary.discount = 0;
-  userCart.summary.total = Math.max(0, subtotal - userCart.summary.discount);
-
-  await userCart.save();
+await activeCart.save();
 
   return {
-    message: "Item added to cart successfully",
-    data: userCart,
+    message: "Added to cart successfully",
+    data: activeCart,
   };
+
 };
 
-// Get cart
-export const getCartService=(userId)=>{
-	const cart= await Cart.findOne({userId}).populate({
-		path:"items.productId",
-		select: "name slug coverImage isDeleted",
-	})
-	.populate({
-		path: "items.variantId",
-		select: "size color price stock isActive",
-	})
 
-	if(!cart){
-		return {
-			message: "Cart fetched successfully",
+
+//Get cart
+export const getCartService=async(userId)=>{
+  const cart = await Cart.findOne({ userId })
+    .populate({
+      path: "items.productId",
+      select: "name isActive isDeleted",
+    })
+    .populate({
+      path: "items.variantId",
+      select: "stock isActive isDeleted",
+    });
+
+  if(!cart){
+    return {
+      message: "Cart fetched successfully",
       data: {
         items: [],
-        summary: { subtotal: 0, discount: 0, total: 0 },
-		}
-		}
-	}
-		const activeItem= cart.items.filter((item)=> 
-		item.productId && 
-		!item.productId.isDeleted &&
-		item.variantId && 
-      item.variantId.isActive
-		)
 
-		const subtotal = activeItems.reduce((total, item) => {
-    return total + item.priceSnapshot * item.quantity;
-  }, 0);
+        summary: {
+          subtotal: 0,
 
-  if (activeItems.length !== cart.items.length || cart.summary.subtotal !== subtotal) {
-    cart.items = activeItems;
-    cart.summary.subtotal = subtotal;
-    cart.summary.total = Math.max(0, subtotal - cart.summary.discount);
-    await cart.save(); // Async background sync
+          discount: 0,
+
+          shippingCharge: 0,
+
+          total: 0,
+        },
+      },
+    };
   }
 
   return {
     message: "Cart fetched successfully",
     data: cart,
   };
-	
+
 }
+
+//Upadte cart quantity
+export const updateCartQuantityService= async({
+  userId, variantId, quantity
+})=>{
+
+  console.log("servi", userId, variantId, quantity)
+  if(quantity < 1){
+    throw new AppError("Quantity must be at least 1", HTTP_STATUS.BAD_REQUEST);
+  }
+
+  if (quantity > 5) {
+    throw new AppError("Maximum quantity is 5", HTTP_STATUS.BAD_REQUEST);
+  }
+
+
+const [cart, variant] = await Promise.all([
+  Cart.findOne({userId}),
+  Variant.findOne({_id: variantId, isDeleted: false, isActive: true})
+
+])
+   
+  if (!cart) {
+    throw new AppError("Cart not found", HTTP_STATUS.NOT_FOUND);
+  }
+
+   if (!variant) {
+     throw new AppError("Variant not found", HTTP_STATUS.NOT_FOUND);
+   }
+
+   const item = cart.items.find(
+     (item) => item.variantId.toString() === variantId.toString(),
+   );
+
+ if (!item) {
+   throw new AppError("Cart item not found", HTTP_STATUS.NOT_FOUND);
+ }
+
+
+if(quantity > variant.stock){
+  throw new AppError(
+    `Insufficient stock. Only ${variant.stock} units left.`,
+    HTTP_STATUS.BAD_REQUEST,
+  );
+}
+
+item.quantity = quantity
+item.stock = variant.stock
+item.price= variant.price;
+item.salePrice= variant.salePrice
+
+cart.summary= calculateCartSummury(cart.items)
+
+await cart.save()
+
+return {
+  message: "Cart quantity updated successfully",
+  data: cart,
+};
+
+}
+
+
+// Remove from cart
+export const removeCartItemService= async({userId, variantId})=>{
+  const cart= await Cart.findOne({userId})
+
+  if(!cart){
+     throw new AppError("Cart not found", HTTP_STATUS.NOT_FOUND);
+  }
+
+  cart.items= cart.items.filter((item)=>
+  item.variantId.toString() !==variantId
+  )
+
+  cart.summary= calculateCartSummury(cart.items)
+
+  await cart.save()
+
+  return {
+    message: "Item removed from cart",
+    data: cart
+  };
+}
+
+
+//clear cart
+export const clearCartService= async(userId)=>{
+  const cart = await Cart.findOne({
+    userId,
+  })
+
+ if (!cart) {
+   throw new AppError("Cart not found", HTTP_STATUS.NOT_FOUND);
+ }
+
+cart.items = [];
+
+ cart.summary = {
+   subtotal: 0,
+
+   discount: 0,
+
+   shippingCharge: 0,
+
+   total: 0,
+ };
+
+  await cart.save();
+
+  return {
+    message: "Cart cleared successfully",
+
+    data: cart,
+  };
+
+}
+
