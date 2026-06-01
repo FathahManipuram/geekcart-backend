@@ -193,148 +193,6 @@ export const createProductService = async (data) => {
 };
 
 
-//Get product
-export const getProductsServices = async (query) => {
-  
-  const {
-    page = 1,
-
-    limit = 10,
-
-    search = "",
-
-    status = "",
-
-    subcategory = "",
-  } = query;
-
-
-const filters = {
-  isDeleted: false,
-};
-
-
-if (subcategory) {
-  filters.subcategory = subcategory;
-}
-
-
-if (search.trim()) {
-  filters.name = {
-    $regex: search,
-    $options: "i",
-  };
-}
-
-  const products = await Product.find(filters)
-    .populate("category", "name")
-    .populate("subcategory", "name")
-    .sort({ createdAt: -1 })
-    .lean();
-
-
-  const productIds = products.map((product) => product._id);
-
- 
-  const variants = await Variant.find({
-    product: {
-      $in: productIds,
-    },
-
-    isDeleted: false,
-  }).lean();
-
- 
-  const formattedProducts = products.map((product) => {
-  
-    const productVariants = variants.filter(
-      (variant) => variant.product.toString() === product._id.toString(),
-    );
-
-  
-    const stock = productVariants.reduce(
-      (total, variant) => total + (variant.stock || 0),
-      0,
-    );
-
-
-    const price =
-      productVariants.length > 0
-        ? Math.min(
-            ...productVariants.map(
-              (variant) => variant.salePrice || variant.price,
-            ),
-          )
-        : 0;
-
-    
-    let status = "in-stock";
-
-    if (stock === 0) {
-      status = "out-of-stock";
-    } else if (stock < 5) {
-      status = "low-stock";
-    }
-
-   
-    const sizes = [...new Set(productVariants.map((variant) => variant.size))];
-
-    return {
-      ...product,
-
-      variants: productVariants,
-
-      stock,
-
-      price,
-
-      status,
-
-      sizes,
-    };
-  });
-
-  
-
-  const totalSkuUnits = variants.reduce(
-    (total, variant) => total + (variant.stock || 0),
-    0,
-  );
-
-  const lowStockAlerts = variants.filter(
-    (variant) => variant.stock <= variant.lowStockThreshold,
-  ).length;
-
-  const activeSubcategories = new Set(
-    products.map((product) => product.subcategory?._id?.toString()),
-  ).size;
-
-  const inventoryValue = variants.reduce(
-    (total, variant) =>
-      total + variant.stock * (variant.salePrice || variant.price || 0),
-    0,
-  );
-
-  return {
-    message: "Products fetched successfully",
-
-    data: {
-      products: formattedProducts,
-
-      stats: {
-        totalSkuUnits,
-
-        lowStockAlerts,
-
-        activeSubcategories,
-
-        inventoryValue,
-      },
-    },
-  };
-};
-
-
 //Get prodect details
 export const getProductDetailsService = async (slug) => {
 
@@ -785,3 +643,22 @@ export const deleteProductService = async (productId) => {
   }
 };
 
+
+// Toggle product active status
+export const toggleProductStatusService = async (productId) => {
+  const product = await Product.findById(productId);
+  if (!product) {
+    throw new AppError("Product not found", HTTP_STATUS.NOT_FOUND);
+  }
+
+  product.isActive = !product.isActive
+  await product.save();
+
+   return {
+     message: `Product ${
+       product.isActive ? "activated" : "deactivated"
+     } successfully`,
+
+     data: product,
+   };
+}

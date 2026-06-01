@@ -8,9 +8,9 @@ import {
   deleteProductService,
   getProductDetailsService,
   getProductsService,
+  toggleProductStatusService,
   updateProductService,
 } from "../services/product.service.js";
-
 
 // create product
 export const createProductController = async (req, res, next) => {
@@ -92,9 +92,6 @@ export const createProductController = async (req, res, next) => {
   }
 };
 
-
-
-
 //Get product details
 export const getProductDetailsController = async (req, res, next) => {
   try {
@@ -108,7 +105,6 @@ export const getProductDetailsController = async (req, res, next) => {
   }
 };
 
-
 // update product
 export const updateProductController = async (req, res, next) => {
   try {
@@ -118,24 +114,19 @@ export const updateProductController = async (req, res, next) => {
       ...req.body,
     };
 
-   
     if (payload.existingCoverImage) {
       payload.coverImage = payload.existingCoverImage;
     }
 
-   
     const coverFile = (req.files || []).find(
       (file) => file.fieldname === "coverImage",
     );
 
-   
     if (coverFile) {
-     
       if (payload.existingCoverImage) {
         await deleteImageFromCloudinary(payload.existingCoverImage);
       }
 
-      
       const uploadedCover = await uploadImage(
         coverFile,
         "products/cover-images",
@@ -146,7 +137,6 @@ export const updateProductController = async (req, res, next) => {
 
     const variantGroups = payload.variantGroups || [];
 
-    
     for (let index = 0; index < variantGroups.length; index++) {
       const group = variantGroups[index];
 
@@ -156,18 +146,15 @@ export const updateProductController = async (req, res, next) => {
 
       const uploadedUrls = [];
 
-      
       for (const file of groupFiles) {
         const uploaded = await uploadImage(file, "products/variants");
 
         uploadedUrls.push(uploaded.secure_url);
       }
 
-     
       group.images = [...(group.images || []), ...uploadedUrls];
     }
 
-  
     if (payload.variants) {
       payload.variants = payload.variants.map((variant) => {
         const matchedGroup = variantGroups.find(
@@ -205,13 +192,25 @@ export const deleteProductController = async (req, res, next) => {
   }
 };
 
-
 //get product
 export const getProductsController = async (req, res, next) => {
   try {
     const query = req.query;
 
     const result = await getProductsService(query);
+
+    return successResponse(res, HTTP_STATUS.OK, result.message, result.data);
+  } catch (err) {
+    next(err);
+  }
+};
+
+//Toggle product status
+export const toggleProductStatusController = async (req, res, next) => {
+  try {
+    const { productId } = req.params;
+
+    const result = await toggleProductStatusService(productId);
 
     return successResponse(res, HTTP_STATUS.OK, result.message, result.data);
   } catch (err) {
