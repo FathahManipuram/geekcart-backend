@@ -1,3 +1,4 @@
+import { Category } from "../../../admin-side/category-management/models/category.model.js";
 import { Product } from "../../../admin-side/product-management/models/product.model.js";
 import { Variant } from "../../../admin-side/product-management/models/variant.model.js";
 import { Subcategory } from "../../../admin-side/subcategory-management/models/subcategory.model.js";
@@ -16,7 +17,7 @@ export const getHomeDataService = async () => {
  
   const products = await Product.find({
     isDeleted: false,
-    isActive: true,
+    //isActive: true,
   })
     .populate("subcategory", "name")
     .sort({

@@ -3,7 +3,7 @@ import { getCollectionsController } from "../controllers/collections.controller.
 
 const router= Router()
 
-router.get("/", getCollectionsController);
+router.get('/', getCollectionsController);
 
 
 export default router

@@ -1,15 +1,13 @@
 import mongoose from "mongoose";
 
-import { Product } from "../../../admin-side/product-management/models/product.model";
+import { Product } from "../../../admin-side/product-management/models/product.model.js";
 
 export const getCollectionsService = async (query) => {
-  /**
-   * Query Params
-   */
+  console.log("collection Service: ", query)
   const {
     page = 1,
 
-    limit = 12,
+    limit = 8,
 
     search = "",
 
@@ -26,16 +24,12 @@ export const getCollectionsService = async (query) => {
     maxPrice = 999999,
   } = query;
 
-  /**
-   * Pagination
-   */
+
   const currentPage = Number(page);
 
   const perPage = Number(limit);
 
-  /**
-   * Normalize Arrays
-   */
+
   const normalizedSubcategories = Array.isArray(subcategory)
     ? subcategory
     : subcategory
@@ -50,18 +44,14 @@ export const getCollectionsService = async (query) => {
       ? [colors]
       : [];
 
-  /**
-   * Product Match
-   */
+  
   const productMatch = {
     isDeleted: false,
 
     isActive: true,
   };
 
-  /**
-   * Search
-   */
+ 
   if (search.trim()) {
     productMatch.name = {
       $regex: search,
@@ -69,45 +59,37 @@ export const getCollectionsService = async (query) => {
     };
   }
 
-  /**
-   * Subcategory
-   */
+ 
   if (normalizedSubcategories.length > 0) {
     productMatch.subcategory = {
       $in: normalizedSubcategories.map((id) => new mongoose.Types.ObjectId(id)),
     };
-  }
 
-  /**
-   * Variant Match
-   */
+
+   }
+
+
   const variantMatch = {
     isDeleted: false,
 
     isActive: true,
   };
 
-  /**
-   * Sizes
-   */
+
   if (normalizedSizes.length > 0) {
     variantMatch.size = {
       $in: normalizedSizes,
     };
   }
 
-  /**
-   * Colors
-   */
+ 
   if (normalizedColors.length > 0) {
     variantMatch.color = {
       $in: normalizedColors,
     };
   }
 
-  /**
-   * Price Filter
-   */
+
   variantMatch.$expr = {
     $and: [
       {
@@ -130,9 +112,7 @@ export const getCollectionsService = async (query) => {
     ],
   };
 
-  /**
-   * Sort
-   */
+
   let sortStage = {
     createdAt: -1,
   };
@@ -155,20 +135,14 @@ export const getCollectionsService = async (query) => {
     };
   }
 
-  /**
-   * Aggregation Pipeline
-   */
+
   const pipeline = [
-    /**
-     * Product Filters
-     */
+
     {
       $match: productMatch,
     },
 
-    /**
-     * Variants
-     */
+    
     {
       $lookup: {
         from: "variants",
@@ -181,9 +155,7 @@ export const getCollectionsService = async (query) => {
       },
     },
 
-    /**
-     * Filter Variants
-     */
+   
     {
       $addFields: {
         variants: {
@@ -242,9 +214,7 @@ export const getCollectionsService = async (query) => {
       },
     },
 
-    /**
-     * Remove Empty Variant Products
-     */
+  
     {
       $match: {
         "variants.0": {
@@ -253,9 +223,7 @@ export const getCollectionsService = async (query) => {
       },
     },
 
-    /**
-     * Lowest Price
-     */
+   
     {
       $addFields: {
         lowestPrice: {
@@ -274,9 +242,7 @@ export const getCollectionsService = async (query) => {
       },
     },
 
-    /**
-     * Populate Subcategory
-     */
+   
     {
       $lookup: {
         from: "subcategories",
@@ -297,16 +263,11 @@ export const getCollectionsService = async (query) => {
       },
     },
 
-    /**
-     * Sorting
-     */
+
     {
       $sort: sortStage,
     },
 
-    /**
-     * Pagination
-     */
     {
       $facet: {
         products: [
@@ -328,14 +289,10 @@ export const getCollectionsService = async (query) => {
     },
   ];
 
-  /**
-   * Execute
-   */
+
   const result = await Product.aggregate(pipeline);
 
-  /**
-   * Data
-   */
+
   const products = result[0]?.products || [];
 
   const totalProducts = result[0]?.totalCount?.[0]?.count || 0;
@@ -359,4 +316,5 @@ export const getCollectionsService = async (query) => {
       },
     },
   };
+
 };
