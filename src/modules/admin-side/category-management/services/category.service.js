@@ -2,6 +2,8 @@ import { HTTP_STATUS } from "../../../../common/constants/statusCode.js"
 import { AppError } from "../../../../common/utils/AppError.js"
 import { buildQuery } from "../../../../common/utils/buildQuery.js"
 import { generateSlug } from "../../../../common/utils/slugify.js"
+import { Product } from "../../product-management/models/product.model.js"
+import { Subcategory } from "../../subcategory-management/models/subcategory.model.js"
 import { Category } from "../models/category.model.js"
 
 //fatch categories
@@ -38,12 +40,36 @@ const activeCategories= await Category.countDocuments({
 	isActive: true
 })
 
+const totalSubcategories= await Subcategory.countDocuments({isDeleted: false})
+
+const categoryWithCount= await Promise.all(result.items.map(async(category)=>{
+	const subcategoryCount= await Subcategory.countDocuments({
+		category: category._id,
+		isDeleted: false,
+	})
+
+	const productCount = await Product.countDocuments({
+    category: category._id,
+    isDeleted: false,
+  });
+
+  return {
+	...category.toObject?.() || category,
+	subcategoryCount,
+	productCount,
+  }
+}))
+
+
+
 	return {
 		message: "Categories fetched successfully",
 		data: {
-			categories: result.items,
+			// categories: result.items,
+			categories: categoryWithCount,
 			pagination: result.pagination,
 			activeCategories,
+			totalSubcategories,
 		}
 	}
 }
