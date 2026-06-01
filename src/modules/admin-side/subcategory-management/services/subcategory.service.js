@@ -5,6 +5,7 @@ import { deleteImageFromCloudinary } from "../../../../common/utils/cloudinary.d
 import { generateSlug } from "../../../../common/utils/slugify.js"
 import { uploadImage } from "../../../../common/utils/uploadImage.js"
 import { Category } from "../../category-management/models/category.model.js"
+import { Product } from "../../product-management/models/product.model.js"
 import { Subcategory } from "../models/subcategory.model.js"
 
 
@@ -107,10 +108,22 @@ const totalCategories = await Category.countDocuments({
 	isDeleted: false
 })
 
+const subcategoriesWithCounts= await Promise.all(items.map(async(subcategory)=>{
+	const productCount= await Product.countDocuments({
+		subcategory: subcategory._id,
+		isDeleted: false,
+	})
+	return {
+		...subcategory.toObject?.() || subcategory,
+		productCount,
+	}
+}))
+
 return {
 	message: "Subcategories fetched successfully",
 	data: {
-		subcategories: items,
+		// subcategories: items,
+		subcategories: subcategoriesWithCounts,
 		pagination,
 		activeSubcategories,
 		totalCategories,
