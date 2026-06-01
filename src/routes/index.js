@@ -3,6 +3,10 @@ import authRoutes from "../modules/auth/routes/auth.routes.js"
 import userRoutes from "../modules/user-side/user-profile/routes/user.routes.js"
 import addressRoutes from "../modules/user-side/address/routes/address.routes.js"
 import homeRoutes from '../modules/user-side/home/routes/home.routes.js'
+import cartRoutes from '../modules/user-side/cart/routes/cart.routes.js'
+import collectionsRoutes from "../modules/user-side/collections/routes/collections.routes.js"
+import productsRoutes from "../modules/user-side/products/routes/product.routes.js"
+
 
 //Admin
 import userManagementRoutes from "../modules/admin-side/user-management/routes/user-management.routes.js"
@@ -10,11 +14,15 @@ import categoryManagementRoutes from "../modules/admin-side/category-management/
 import subcategoryManagementRoutes from "../modules/admin-side/subcategory-management/routes/subcategory.routes.js"
 import productManagementRoutes from '../modules/admin-side/product-management/routes/product.routes.js'
 
+
 const router= Router()
 router.use("/auth", authRoutes)
 router.use("/user", userRoutes)
 router.use("/account", addressRoutes)
-router.use("/user/home", homeRoutes);
+router.use("/user/home", homeRoutes)
+router.use("/cart", cartRoutes)
+router.use("/collections", collectionsRoutes)
+router.use("/products", productsRoutes)
 
 
 //Admin Routes
