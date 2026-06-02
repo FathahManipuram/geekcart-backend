@@ -101,8 +101,7 @@ const months = [
 		users: item.users,
 	  }))
 
-	  console.log(userGrowth)
-	  console.log(formattedUserGrowth)
+
 
   return {
     message: "Dashboard fetched successfully",

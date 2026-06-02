@@ -6,7 +6,6 @@ import { getDashboardService } from "../services/dashboard.service.js";
 export const getDashboardController = async (req, res, next) => {
   try {
     const result = await getDashboardService();
-console.log(result.data)
     return successResponse(res, HTTP_STATUS.OK, result.message, result.data);
   } catch (err) {
     next(err);
