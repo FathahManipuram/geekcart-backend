@@ -113,7 +113,7 @@ export const getCartService=async(userId)=>{
   const cart = await Cart.findOne({ userId })
     .populate({
       path: "items.productId",
-      select: "name isActive isDeleted",
+      select: "name isActive isDeleted slug",
     })
     .populate({
       path: "items.variantId",
