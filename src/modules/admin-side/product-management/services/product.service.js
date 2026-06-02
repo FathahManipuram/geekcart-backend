@@ -10,6 +10,7 @@ import { buildQuery } from "../../../../common/utils/buildQuery.js";
 import { deleteImageFromCloudinary } from "../../../../common/utils/cloudinary.delete.js";
 import { create } from "hbs";
 
+
 //Create Product
 export const createProductService = async (data) => {
   const session = await mongoose.startSession();
@@ -193,41 +194,7 @@ export const createProductService = async (data) => {
 };
 
 
-//Get prodect details
-export const getProductDetailsService = async (slug) => {
-
-  const product = await Product.findOne({
-    slug,
-    isDeleted: false,
-  })
-    .populate("category", "name")
-    .populate("subcategory", "name")
-    .lean();
-
-  
-  if (!product) {
-    throw new AppError("Product not found", HTTP_STATUS.NOT_FOUND);
-  }
-
-  
-  const variants = await Variant.find({
-    product: product._id,
-
-    isDeleted: false,
-  }).lean();
-
-  return {
-    message: "Product details fetched successfully",
-
-    data: {
-      ...product,
-      variants,
-    },
-  };
-};
-
-
-//Update
+//Update products
 export const updateProductService = async (productId, data) => {
   const session = await mongoose.startSession();
 
@@ -401,6 +368,65 @@ export const updateProductService = async (productId, data) => {
 };
 
 
+// delete product
+export const deleteProductService = async (productId) => {
+  const session = await mongoose.startSession();
+
+  session.startTransaction();
+
+  try {
+   
+    const existingProduct = await Product.findOne({
+      _id: productId,
+      isDeleted: false,
+    }).session(session);
+
+    if (!existingProduct) {
+      throw new AppError("Product not found", HTTP_STATUS.NOT_FOUND);
+    }
+
+    
+    await Product.findByIdAndUpdate(
+      productId,
+      {
+        isDeleted: true,
+        isActive: false,
+      },
+      {
+        session,
+      },
+    );
+
+ 
+    await Variant.updateMany(
+      {
+        product: productId,
+      },
+      {
+        isDeleted: true,
+        isActive: false,
+      },
+      {
+        session,
+      },
+    );
+
+  
+    await session.commitTransaction();
+
+    return {
+      message: "Product deleted successfully",
+    };
+  } catch (err) {
+    await session.abortTransaction();
+
+    throw err;
+  } finally {
+    await session.endSession();
+  }
+};
+
+// Get all products
 export const getProductsService = async (query) => {
   
  const {
@@ -444,9 +470,11 @@ if (productStatus) {
     .populate("category", "name")
     .populate("subcategory", "name")
     .sort({
-      createdAt: sort === "oldest" ? 1 : -1,
+   createdAt: sort === "oldest" ? 1 : -1,
     })
     .lean();
+
+
 
  
   const productIds = products.map((product) => product._id);
@@ -585,63 +613,41 @@ if (productStatus) {
 };
 
 
-// delete product
-export const deleteProductService = async (productId) => {
-  const session = await mongoose.startSession();
 
-  session.startTransaction();
 
-  try {
-   
-    const existingProduct = await Product.findOne({
-      _id: productId,
-      isDeleted: false,
-    }).session(session);
+//Get prodect details
+export const getProductDetailsService = async (slug) => {
 
-    if (!existingProduct) {
-      throw new AppError("Product not found", HTTP_STATUS.NOT_FOUND);
-    }
-
-    
-    await Product.findByIdAndUpdate(
-      productId,
-      {
-        isDeleted: true,
-        isActive: false,
-      },
-      {
-        session,
-      },
-    );
-
- 
-    await Variant.updateMany(
-      {
-        product: productId,
-      },
-      {
-        isDeleted: true,
-        isActive: false,
-      },
-      {
-        session,
-      },
-    );
+  const product = await Product.findOne({
+    slug,
+    isDeleted: false,
+  })
+    .populate("category", "name")
+    .populate("subcategory", "name")
+    .lean();
 
   
-    await session.commitTransaction();
-
-    return {
-      message: "Product deleted successfully",
-    };
-  } catch (err) {
-    await session.abortTransaction();
-
-    throw err;
-  } finally {
-    await session.endSession();
+  if (!product) {
+    throw new AppError("Product not found", HTTP_STATUS.NOT_FOUND);
   }
+
+  
+  const variants = await Variant.find({
+    product: product._id,
+
+    isDeleted: false,
+  }).lean();
+
+  return {
+    message: "Product details fetched successfully",
+
+    data: {
+      ...product,
+      variants,
+    },
+  };
 };
+
 
 
 // Toggle product active status
