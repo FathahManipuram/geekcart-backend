@@ -45,6 +45,7 @@ export const getHomeDataService = async () => {
       (variant) => variant.product.toString() === product._id.toString(),
     );
 
+ const defaultVariant = productVariants[0];
   
     const price =
       productVariants.length > 0
@@ -60,8 +61,10 @@ export const getHomeDataService = async () => {
 
     return {
       ...product,
-      price,
+      price: defaultVariant?.price,
+      salePrice: defaultVariant?.salePrice || null,
       image,
+      variantId: defaultVariant?._id || null,
     };
   });
 

@@ -6,6 +6,8 @@ import homeRoutes from '../modules/user-side/home/routes/home.routes.js'
 import cartRoutes from '../modules/user-side/cart/routes/cart.routes.js'
 import collectionsRoutes from "../modules/user-side/collections/routes/collections.routes.js"
 import productsRoutes from "../modules/user-side/products/routes/product.routes.js"
+import wishlistRoutes from "../modules/user-side/wishlist/routes/wishlist.routes.js"
+
 
 
 //Admin
@@ -23,6 +25,7 @@ router.use("/user/home", homeRoutes)
 router.use("/cart", cartRoutes)
 router.use("/collections", collectionsRoutes)
 router.use("/products", productsRoutes)
+router.use("/wishlist", wishlistRoutes)
 
 
 //Admin Routes
