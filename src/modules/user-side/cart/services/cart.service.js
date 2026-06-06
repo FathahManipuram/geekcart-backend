@@ -3,7 +3,7 @@
 import { HTTP_STATUS } from "../../../../common/constants/statusCode.js";
 import { AppError } from "../../../../common/utils/AppError.js";
 import { Variant } from "../../../admin-side/product-management/models/variant.model.js";
-import { calculateCartSummury } from "../helpers/cart.helper.js";
+import { calculateCartSummary } from "../helpers/cart.helper.js";
 import { Cart } from "../models/cart.model.js";
 
 
@@ -95,7 +95,7 @@ activeCart.items[existingItemIndex].quantity = newQuantity;
     });
 }
 
-activeCart.summary = calculateCartSummury(activeCart.items)
+activeCart.summary = calculateCartSummary(activeCart.items)
 
 await activeCart.save();
 
@@ -196,7 +196,7 @@ item.stock = variant.stock
 item.price= variant.price;
 item.salePrice= variant.salePrice
 
-cart.summary= calculateCartSummury(cart.items)
+cart.summary= calculateCartSummary(cart.items)
 
 await cart.save()
 
@@ -220,7 +220,7 @@ export const removeCartItemService= async({userId, variantId})=>{
   item.variantId.toString() !==variantId
   )
 
-  cart.summary= calculateCartSummury(cart.items)
+  cart.summary= calculateCartSummary(cart.items)
 
   await cart.save()
 

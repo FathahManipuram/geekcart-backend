@@ -8,7 +8,7 @@ import collectionsRoutes from "../modules/user-side/collections/routes/collectio
 import productsRoutes from "../modules/user-side/products/routes/product.routes.js"
 import wishlistRoutes from "../modules/user-side/wishlist/routes/wishlist.routes.js"
 import checkoutRoutes from "../modules/user-side/checkout/routes/checkout.routes.js"
-
+import orderRoutes from "../modules/user-side/order/routes/order.routes.js"
 
 //Admin
 import userManagementRoutes from "../modules/admin-side/user-management/routes/user-management.routes.js"
@@ -27,6 +27,7 @@ router.use("/collections", collectionsRoutes)
 router.use("/products", productsRoutes)
 router.use("/wishlist", wishlistRoutes)
 router.use("/checkout", checkoutRoutes)
+router.use("/orders", orderRoutes)
 
 //Admin Routes
 router.use("/admin", userManagementRoutes)
