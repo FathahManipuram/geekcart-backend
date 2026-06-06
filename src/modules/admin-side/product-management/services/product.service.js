@@ -201,7 +201,6 @@ export const updateProductService = async (productId, data) => {
   session.startTransaction();
 
   try {
-   
     const existingProduct = await Product.findOne({
       _id: productId,
 
@@ -212,15 +211,12 @@ export const updateProductService = async (productId, data) => {
       throw new AppError("Product not found", HTTP_STATUS.NOT_FOUND);
     }
 
-   
     const { variants, ...productData } = data;
 
-   
     const updateData = Object.fromEntries(
       Object.entries(productData).filter(([_, value]) => value !== undefined),
     );
 
-   
     const updatedProduct = await Product.findByIdAndUpdate(
       productId,
 
@@ -233,108 +229,186 @@ export const updateProductService = async (productId, data) => {
       },
     );
 
-   
     let oldImages = [];
 
-   
+    // if (variants !== undefined) {
+
+    //   const skus = variants.map((variant) => variant.sku);
+
+    //   const existingSku = await Variant.findOne({
+    //     sku: {
+    //       $in: skus,
+    //     },
+
+    //     product: {
+    //       $ne: productId,
+    //     },
+
+    //     isDeleted: false,
+    //   }).session(session);
+
+    //   if (existingSku) {
+    //     throw new AppError(
+    //       `SKU already exists: ${existingSku.sku}`,
+    //       HTTP_STATUS.BAD_REQUEST,
+    //     );
+    //   }
+
+    //   const oldVariants = await Variant.find({
+    //     product: productId,
+
+    //     isDeleted: false,
+    //   }).session(session);
+
+    //   oldImages = oldVariants.flatMap((variant) => variant.images || []);
+
+    //   // await Variant.updateMany(
+    //   //   {
+    //   //     product: productId,
+    //   //   },
+
+    //   //   {
+    //   //     isDeleted: true,
+    //   //   },
+
+    //   //   {
+    //   //     session,
+    //   //   },
+    //   // );
+
+    //   const existingVariantMap = new Map(
+    //     oldVariants.map((variant) => [
+    //       `${variant.color}-${variant.size}`,
+    //       variant,
+    //     ]),
+    //   );
+
+    //   const variantDocs = variants.map((variant, index) => {
+    //     const key = `${variant.color}-${variant.size}`;
+
+    //     const existingVariant = existingVariantMap.get(key);
+
+    //     return {
+    //       ...variant,
+
+    //       images:
+    //         variant.images && variant.images.length >= 3
+    //           ? variant.images
+    //           : existingVariant?.images || [],
+
+    //       product: productId,
+
+    //       isDefault: index === 0,
+    //     };
+    //   });
+
+    //   if (variantDocs.length > 0) {
+    //     await Variant.insertMany(variantDocs, {
+    //       session,
+    //     });
+    //   }
+    // }
+
+    // ✅ PASTE THIS NEW FIXED BLOCK HERE
     if (variants !== undefined) {
-     
-      const skus = variants.map((variant) => variant.sku);
-
+      // 1. Check for SKU conflicts on other products
+      const skus = variants.map((v) => v.sku);
       const existingSku = await Variant.findOne({
-        sku: {
-          $in: skus,
-        },
-
-        product: {
-          $ne: productId,
-        },
-
+        sku: { $in: skus },
+        product: { $ne: productId },
         isDeleted: false,
       }).session(session);
 
       if (existingSku) {
         throw new AppError(
-          `SKU already exists: ${existingSku.sku}`,
+          `SKU already exists on another product: ${existingSku.sku}`,
           HTTP_STATUS.BAD_REQUEST,
         );
       }
 
-     
+      // 2. Fetch current active variants before making modifications
       const oldVariants = await Variant.find({
         product: productId,
-
         isDeleted: false,
       }).session(session);
 
-      
       oldImages = oldVariants.flatMap((variant) => variant.images || []);
 
-      
+      // Map existing variants by color + size combination for easy lookup
+      const existingVariantMap = new Map(
+        oldVariants.map((v) => [`${v.color}-${v.size}`, v]),
+      );
+
+      const activeVariantIds = [];
+      const variantsToInsert = [];
+
+      // 3. Loop through incoming changes: update existing or stage new ones
+      for (let i = 0; i < variants.length; i++) {
+        const variantInput = variants[i];
+        const key = `${variantInput.color}-${variantInput.size}`;
+        const existingVariant = existingVariantMap.get(key);
+
+        const mergedImages =
+          variantInput.images && variantInput.images.length >= 3
+            ? variantInput.images
+            : existingVariant?.images || [];
+
+        if (existingVariant) {
+          // UPDATE MATCHING VARIANT: Keeps the original MongoDB _id intact!
+          const updatedVariant = await Variant.findByIdAndUpdate(
+            existingVariant._id,
+            {
+              ...variantInput,
+              images: mergedImages,
+              isDefault: i === 0,
+              isDeleted: false,
+            },
+            { new: true, session },
+          );
+          activeVariantIds.push(updatedVariant._id.toString());
+        } else {
+          // STAGE NEW VARIANT: For items that don't exist yet
+          variantsToInsert.push({
+            ...variantInput,
+            images: mergedImages,
+            product: productId,
+            isDefault: i === 0,
+          });
+        }
+      }
+
+      // 4. Batch insert completely new variants
+      if (variantsToInsert.length > 0) {
+        const insertedDocs = await Variant.insertMany(variantsToInsert, {
+          session,
+        });
+        insertedDocs.forEach((doc) =>
+          activeVariantIds.push(doc._id.toString()),
+        );
+      }
+
+      // 5. Clean up: Soft-delete variants omitted by the admin update
       await Variant.updateMany(
         {
           product: productId,
+          _id: { $nin: activeVariantIds },
+          isDeleted: false,
         },
-
-        {
-          isDeleted: true,
-        },
-
-        {
-          session,
-        },
+        { isDeleted: true },
+        { session },
       );
-
-     
-      const existingVariantMap = new Map(
-        oldVariants.map((variant) => [
-          `${variant.color}-${variant.size}`,
-          variant,
-        ]),
-      );
-
-      
-      const variantDocs = variants.map((variant, index) => {
-        const key = `${variant.color}-${variant.size}`;
-
-        const existingVariant = existingVariantMap.get(key);
-
-        return {
-          ...variant,
-
-         
-          images:
-            variant.images && variant.images.length >= 3
-              ? variant.images
-              : existingVariant?.images || [],
-
-          product: productId,
-
-          isDefault: index === 0,
-        };
-      });
-
-      if (variantDocs.length > 0) {
-        await Variant.insertMany(variantDocs, {
-          session,
-        });
-      }
     }
 
-   
     await session.commitTransaction();
 
-   
     const finalVariants = await Variant.find({
       product: updatedProduct._id,
 
       isDeleted: false,
     }).lean();
 
-   
     const usedImages = finalVariants.flatMap((variant) => variant.images || []);
 
-   
     const removableImages = oldImages.filter(
       (image) => !usedImages.includes(image),
     );
@@ -343,7 +417,6 @@ export const updateProductService = async (productId, data) => {
       await deleteImageFromCloudinary(image);
     }
 
-    
     const finalProduct = await Product.findById(updatedProduct._id)
       .populate("category", "name")
       .populate("subcategory", "name")
