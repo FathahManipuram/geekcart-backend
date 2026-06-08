@@ -96,14 +96,20 @@ const orderSchema = new mongoose.Schema(
     orderStatus: {
       type: String,
       enum: [
+        "PENDING",
         "PLACED",
         "PROCESSING",
         "SHIPPED",
+        "OUT_FOR_DELIVERY",
         "DELIVERED",
         "CANCELLED",
+        "RETURN_REQUESTED",
         "RETURNED",
       ],
-      default: "PLACED",
+
+      default: function () {
+        return this.paymentMethod === "COD" ? "PLACED" : "PENDING";
+      },
       index: true,
     },
 
@@ -111,14 +117,32 @@ const orderSchema = new mongoose.Schema(
 
     statusHistory: [
       {
-        status: String,
-        updatedAt: Date,
+        status: {
+          type: String,
+          enum: [
+            "PENDING",
+            "PLACED",
+            "PROCESSING",
+            "SHIPPED",
+            "OUT_FOR_DELIVERY",
+            "DELIVERED",
+            "CANCELLED",
+            "RETURN_REQUESTED",
+            "RETURNED",
+          ],
+          required: true,
+        },
+        updatedAt: {
+          type: Date,
+          default: Date.now,
+        },
+        updatedBy: {
+          type: String,
+          enum: ["USER", "ADMIN", "SYSTEM"],
+          default: "SYSTEM",
+        },
       },
     ],
-    updatedAt: {
-      type: Date,
-      default: Date.now,
-    },
 
     cancellation: {
       reason: String,
@@ -126,8 +150,20 @@ const orderSchema = new mongoose.Schema(
       cancelledBy: { type: String, enum: ["USER", "ADMIN", "SYSTEM"] },
     },
 
+    returnDetails: {
+      reason: String,
+      requestedAt: Date,
+      resolvedAt: Date,
+      status: {
+        type: String,
+        enum: ["PENDING", "APPROVED", "REJECTED", "COMPLETED"],
+      },
+    },
+
     subtotal: { type: Number, required: true, min: 0 },
+    speedCharge: { type: Number, default: 0 },
     shippingCharge: { type: Number, required: true, default: 0, min: 0 },
+    deliveryCharge: { type: Number, default: 0 },
     tax: { type: Number, required: true, default: 0, min: 0 },
     discount: { type: Number, required: true, default: 0, min: 0 },
     totalAmount: { type: Number, required: true, min: 0 },

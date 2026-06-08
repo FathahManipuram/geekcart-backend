@@ -33,12 +33,15 @@ if(!validationResult.valid){
 	throw new AppError("Checkout Validation failed", HTTP_STATUS.BAD_REQUEST)
 }
 
+const speedCharge= deliveryMethod === "EXPRESS" ? 25 : 0
+
 const {
 	subtotal,
 	discount,
 	shippingCharge,
+  deliveryCharge,
 	total,
-}= calculateCartSummary(cart.items)
+}= calculateCartSummary(cart.items, speedCharge)
 
 
 
@@ -78,7 +81,9 @@ const order = await Order.create({
 
 
   subtotal,
+  speedCharge,
   shippingCharge,
+  deliveryCharge,
   discount,
   totalAmount: total
 });
@@ -122,15 +127,15 @@ await Promise.all(
 );
 
 
-//   cart.items=[]
-//   cart.summary={
-// 	subtotal: 0,
-// 	discount: 0,
-// 	shippingCharge: 0,
-// 	total: 0,
-//   }
+  cart.items=[]
+  cart.summary={
+	subtotal: 0,
+	discount: 0,
+	shippingCharge: 0,
+	total: 0,
+  }
 
-//   await cart.save()
+  await cart.save()
 console.log("placed")
 
   return {
@@ -166,7 +171,7 @@ export const getOrderByIdService = async ({ userId, orderId }) => {
 };
 
 // Get all orders
-export const getOrdersService = async (userId) => {
+export const getAllOrdersService = async (userId) => {
   const orders = await Order.find({
     user: userId,
   }).sort({ createdAt: -1 });

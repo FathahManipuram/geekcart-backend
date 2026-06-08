@@ -3,8 +3,8 @@ import { successResponse } from "../../../../common/helpers/response.js";
 import {
   cancelOrderService,
   createOrderService,
+  getAllOrdersService,
   getOrderByIdService,
-  getOrdersService,
 } from "../services/order.service.js";
 
 export const createOrderController = async (req, res, next) => {
@@ -35,9 +35,9 @@ export const getOrderByIdController = async (req, res, next) => {
 };
 
 //Get all orders
-export const getOrdersController = async (req, res, next) => {
+export const getAllOrdersController = async (req, res, next) => {
   try {
-    const result = await getOrdersService(req.user.id);
+    const result = await getAllOrdersService(req.user.id);
 
     return successResponse(res, HTTP_STATUS.OK, result.message, result.data);
   } catch (error) {
