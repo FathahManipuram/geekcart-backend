@@ -16,6 +16,7 @@ import categoryManagementRoutes from "../modules/admin-side/category-management/
 import subcategoryManagementRoutes from "../modules/admin-side/subcategory-management/routes/subcategory.routes.js"
 import productManagementRoutes from '../modules/admin-side/product-management/routes/product.routes.js'
 import dashboardRoutes from "../modules/admin-side/dashboard/routes/dashboard.routes.js"
+import orderManagementRoutes from "../modules/admin-side/order-management/routes/adminOrder.routes.js"
 
 const router= Router()
 router.use("/auth", authRoutes)
@@ -35,6 +36,7 @@ router.use("/admin/categories", categoryManagementRoutes)
 router.use("/admin/subcategories", subcategoryManagementRoutes)
 router.use("/admin/products", productManagementRoutes)
 router.use("/admin/dashboard", dashboardRoutes)
+router.use("/admin/orders", orderManagementRoutes)
 
 
 export default router
