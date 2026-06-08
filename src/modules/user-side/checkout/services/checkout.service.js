@@ -158,6 +158,9 @@ export const validateCheckoutService = async (userId) => {
   };
 };
 
+
+
+
 //Validate shipping
 export const validateShippingService = async ({
   userId,
@@ -170,7 +173,7 @@ export const validateShippingService = async ({
     _id: addressId,
     userId,
   });
-
+console.log("deliveryMethod: ", deliveryMethod)
   if (!address) {
     issues.push({
       type: SHIPPING_ISSUES.ADDRESS_NOT_FOUND.code,
@@ -191,8 +194,10 @@ export const validateShippingService = async ({
   };
 };
 
-// Validate payment
 
+
+
+// Validate payment
 export const validatePaymentService= async(paymentMethod)=>{
  const issues=[]
 
