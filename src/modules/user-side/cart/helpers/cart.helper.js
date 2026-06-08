@@ -1,4 +1,4 @@
-export const calculateCartSummary = (items = []) => {
+export const calculateCartSummary = (items = [], speedCharge =0) => {
   let subtotal = 0;
   let discount = 0;
 
@@ -13,14 +13,16 @@ export const calculateCartSummary = (items = []) => {
   const shippingCharge =
     subtotal - discount > 500 || items.length === 0 ? 0 : 40;
 
-  const total = subtotal + shippingCharge;
+    const totalDeliveryCharge= shippingCharge + speedCharge
 
-  // const total = subtotal - discount + shippingCharge;
+
+  const total = subtotal - discount + totalDeliveryCharge;
 
   return {
     subtotal,
     discount,
     shippingCharge,
+    deliveryCharge: totalDeliveryCharge,
     total,
   };
 };

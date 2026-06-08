@@ -130,8 +130,8 @@ export const getCartService=async(userId)=>{
           subtotal: 0,
 
           discount: 0,
-
-          shippingCharge: 0,
+      
+          deliveryCharge: 0,
 
           total: 0,
         },

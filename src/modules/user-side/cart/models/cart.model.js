@@ -45,7 +45,7 @@ const cartSchema = new mongoose.Schema(
     summary: {
       subtotal: { type: Number, default: 0 },
       discount: { type: Number, default: 0 },
-      shippingCharge: { type: Number, default: 0 },
+      deliveryCharge: { type: Number, default: 0 },
       total: { type: Number, default: 0 },
     },
   },
