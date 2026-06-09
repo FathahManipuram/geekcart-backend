@@ -1,4 +1,7 @@
 import mongoose from "mongoose";
+import { ORDER_STATUSES } from "../../../../common/constants/order/orderStatus.js";
+import { MODEL_ITEM_STATUSES, MODEL_ORDER_STATUSES } from "../../../../common/constants/order/model.constants.js";
+
 
 
 const orderItemSchema = new mongoose.Schema(
@@ -30,8 +33,51 @@ const orderItemSchema = new mongoose.Schema(
       type: Number,
       default: null,
     },
+
+    itemStatus: {
+      type: String,
+      enum: MODEL_ITEM_STATUSES,
+      default: "PLACED",
+    },
+
+    itemStatusHistory: [
+      {
+        status: {
+          type: String,
+          enum: MODEL_ITEM_STATUSES,
+          required: true,
+        },
+
+        updatedAt: {
+          type: Date,
+          default: Date.now,
+        },
+
+        updatedBy: {
+          type: String,
+          enum: ["USER", "ADMIN", "SYSTEM"],
+          default: "SYSTEM",
+        },
+      },
+    ],
+
+    cancellation: {
+      reason: String,
+      cancelledAt: Date,
+      cancelledBy: { type: String, enum: ["USER", "ADMIN", "SYSTEM"] },
+    },
+
+    returnRequestId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ReturnRequest",
+      default: null,
+    },
+    refundAmount: {
+      type: Number,
+      default: 0,
+    },
   },
-  { _id: false },
+  { _id: true },
 );
 
 
@@ -43,7 +89,7 @@ const orderSchema = new mongoose.Schema(
       required: true,
       unique: true,
       default: () =>
-        `GK-ODR-${Date.now().toString(36)}-${Math.floor(1000 + Math.random() * 9000)}`.toUpperCase(),
+        `GC-ODR-${Date.now().toString(36)}-${Math.floor(1000 + Math.random() * 9000)}`.toUpperCase(),
     },
 
     user: {
@@ -81,7 +127,13 @@ const orderSchema = new mongoose.Schema(
 
     paymentStatus: {
       type: String,
-      enum: ["PENDING", "PAID", "FAILED", "REFUNDED"],
+      enum: [
+        "PENDING",
+        "PAID",
+        "FAILED",
+        "PARTIALLY_REFUNDED",
+        "FULLY_REFUNDED",
+      ],
       default: "PENDING",
       index: true,
     },
@@ -95,17 +147,7 @@ const orderSchema = new mongoose.Schema(
 
     orderStatus: {
       type: String,
-      enum: [
-        "PENDING",
-        "PLACED",
-        "PROCESSING",
-        "SHIPPED",
-        "OUT_FOR_DELIVERY",
-        "DELIVERED",
-        "CANCELLED",
-        "RETURN_REQUESTED",
-        "RETURNED",
-      ],
+      enum: MODEL_ORDER_STATUSES,
 
       default: function () {
         return this.paymentMethod === "COD" ? "PLACED" : "PENDING";
@@ -119,17 +161,7 @@ const orderSchema = new mongoose.Schema(
       {
         status: {
           type: String,
-          enum: [
-            "PENDING",
-            "PLACED",
-            "PROCESSING",
-            "SHIPPED",
-            "OUT_FOR_DELIVERY",
-            "DELIVERED",
-            "CANCELLED",
-            "RETURN_REQUESTED",
-            "RETURNED",
-          ],
+          enum: MODEL_ORDER_STATUSES,
           required: true,
         },
         updatedAt: {
@@ -144,21 +176,8 @@ const orderSchema = new mongoose.Schema(
       },
     ],
 
-    cancellation: {
-      reason: String,
-      cancelledAt: Date,
-      cancelledBy: { type: String, enum: ["USER", "ADMIN", "SYSTEM"] },
-    },
 
-    returnDetails: {
-      reason: String,
-      requestedAt: Date,
-      resolvedAt: Date,
-      status: {
-        type: String,
-        enum: ["PENDING", "APPROVED", "REJECTED", "COMPLETED"],
-      },
-    },
+    
 
     subtotal: { type: Number, required: true, min: 0 },
     speedCharge: { type: Number, default: 0 },
