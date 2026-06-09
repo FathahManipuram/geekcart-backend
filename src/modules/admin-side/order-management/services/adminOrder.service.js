@@ -123,6 +123,15 @@ export const updateOrderStatusService= async({orderId, orderStatus})=>{
 
   order.statusHistory.push({ status: orderStatus, updatedBy: "ADMIN"});
 
+  for (const item of order.items) {
+    item.itemStatus = orderStatus;
+
+    item.itemStatusHistory.push({
+      status: orderStatus,
+      updatedBy: "ADMIN",
+    });
+  }
+
   if(orderStatus==="CANCELLED"){
     order.cancellation={
       cancelledAt: new Date(),
