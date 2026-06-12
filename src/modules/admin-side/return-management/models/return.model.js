@@ -62,7 +62,7 @@ const returnRequestSchema = new mongoose.Schema(
           enum: ["USER", "ADMIN", "SYSTEM"],
           default: "SYSTEM",
         },
-        adminNote: String,
+        // adminNote: String,
       },
     ],
 
@@ -71,7 +71,7 @@ const returnRequestSchema = new mongoose.Schema(
       default: 0,
     },
 
-    //adminNote: String,
+    adminNote: String,
 
     requestedAt: {
       type: Date,

@@ -1,61 +1,177 @@
-import { AppError } from "../../../../common/utils/AppError.js"
-import { ReturnRequest } from "../models/return.model.js"
+import { RETURN_REQUEST_STATUSES } from "../../../../common/constants/adminReturn/returnStatusList.js";
+import { RETURN_STATUS_TRANSITIONS } from "../../../../common/constants/adminReturn/returnStatusTransition.js";
+import { AppError } from "../../../../common/utils/AppError.js";
+import { Order } from "../../../user-side/order/models/order.model.js";
+import { User } from "../../../user-side/user-profile/models/user.model.js";
+import { Variant } from "../../product-management/models/variant.model.js";
+import { ReturnRequest } from "../models/return.model.js";
 
-export const getAllReturnRequestsService= async({
-	page=1,
-	limit=10,
-	status,
-	search,
+export const getAllReturnRequestsService = async ({
+  page = 1,
+  limit = 5,
+  status,
+  search,
+}) => {
+  const query = {};
 
-})=>{
-	const query={}
+  if (status && status !== "ALL") {
+    query.status = status;
+  }
 
-	if(status && status !=="ALL"){
-		query.status= status
-	}
+if(search && search.trim().length){
+const users= await User.find({
+	$or:[
+		{fullName: {$regex: search, $options: "i"}},
+		{email: {$regex: search, $options: "i"}},
+	]
+}).select("_id")
 
-	const skip= (page-1)* limit
+// query.user = {
+// 	$in: users.map((u)=> u._id),
+// }
 
-	const returns = await ReturnRequest.find(query)
-	.populate("user", "fullName email")
-	.populate("order", "orderNumber image")
-	.sort({createdAt: -1})
-	.skip(skip)
-	.limit(limit)
-
-	const totalItems = await ReturnRequest.countDocuments(query)
-
-	return {
-		message: "Return data fetched successfully",
-		data: 
-			returns,
-			pagination: {
-				currentPage: page,
-				totalPages: Math.ceil(totalItems/limit),
-				totalItems,
-			}
-			
-	}
+query.$or= [
+  {
+    user: {
+      $in: users.map((u)=> u._id)
+    },
+  },
+  {
+    "itemSnapshot.name": {
+      $regex: search, $options: "i"
+    }
+  }
+]
 }
+  const skip = (page - 1) * limit;
+
+  const returns = await ReturnRequest.find(query)
+    .populate("user", "fullName email")
+    .populate("order", "orderNumber")
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit);
+
+  const totalItems = await ReturnRequest.countDocuments(query);
+
+  return {
+    message: "Return data fetched successfully",
+    data: {
+      returns,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(totalItems / limit),
+        totalItems,
+      },
+    },
+  };
+};
 
 
-export const updateReturnRequestStatusService= async({returnId, status})=>{
-	const returnRequest= await ReturnRequest.findById(returnId)
+// Update request status
+export const updateReturnRequestStatusService = async ({
+  returnId,
+  status,
+  adminNote,
+}) => {
 
-	if(!returnRequest){
-		throw new AppError("Return request not found", HTTP_STATUS.NOT_FOUND);
-	}
+	console.log("returnId:", returnId);
+  console.log("status:", status);
+  console.log("adminNote:", adminNote);
 
-	returnRequest.status= status
-	if(status==="RETURN_COMPLETED"){
-		returnRequest.resolvedAt = new Date();
-	}
+	if (
+    status === RETURN_REQUEST_STATUSES.RETURN_REJECTED &&
+    !adminNote?.trim()
+  ) {
+    throw new AppError("Rejection reason is required", HTTP_STATUS.BAD_REQUEST);
+  }
+  const returnRequest = await ReturnRequest.findById(returnId);
+
+  if (!returnRequest) {
+    throw new AppError("Return request not found", HTTP_STATUS.NOT_FOUND);
+  }
+
+  const allowedStatuses = RETURN_STATUS_TRANSITIONS[returnRequest.status] || [];
+
+  if (!allowedStatuses.includes(status)) {
+    throw new AppError(
+      "Invalid return status transition",
+      HTTP_STATUS.BAD_REQUEST,
+    );
+  }
+
+  const order = await Order.findById(returnRequest.order);
+
+  if (!order) {
+    throw new AppError("Order not found", HTTP_STATUS.NOT_FOUND);
+  }
+
+  const item = order.items.id(returnRequest.orderItemId);
+
+  if (!item) {
+    throw new AppError("Order item not found", HTTP_STATUS.NOT_FOUND);
+  }
 
 
-	await returnRequest.save()
+  returnRequest.status = status;
 
-	 return {
-     message: "Return status updated successfully",
-     data: returnRequest,
-   };
-}
+  returnRequest.statusHistory.push({
+    status,
+    updatedBy: "ADMIN",
+  });
+returnRequest.adminNote= adminNote
+
+  item.itemStatus = status;
+
+  item.itemStatusHistory.push({
+    status,
+    updatedBy: "ADMIN",
+  });
+
+
+  if (status === RETURN_REQUEST_STATUSES.RETURN_APPROVED) {
+    returnRequest.refundAmount =
+      item.quantity * returnRequest.itemSnapshot.priceAtPurchase;
+  }
+
+
+  if (status === RETURN_REQUEST_STATUSES.RETURN_COMPLETED) {
+    returnRequest.resolvedAt = new Date();
+
+	await Variant.updateOne(
+    { _id: returnRequest.itemSnapshot.variantId },
+    {
+      $inc: {
+        stock: item.quantity,
+      },
+    },
+  );
+  }
+
+
+    await order.save();
+    await returnRequest.save();
+
+  return {
+    message: "Return status updated successfully",
+    data: returnRequest,
+  };
+};
+
+
+
+// Get Return details
+export const getReturnRequestDetailsService = async (returnId) => {
+  const returnRequest = await ReturnRequest.findById(returnId)
+  .populate("user", "fullName email")
+ .populate("order", "orderNumber createdAt paymentMethod paymentStatus");
+
+   if (!returnRequest) {
+     throw new AppError("Return request not found", HTTP_STATUS.NOT_FOUND);
+   }
+
+  return {
+    message: "Return request details fetched successfully",
+    data: returnRequest,
+  };
+};
