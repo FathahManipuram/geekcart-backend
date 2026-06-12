@@ -25,7 +25,7 @@ const cartItemSchema = new mongoose.Schema(
       min: [1, "Quantity cannot be less than 1"],
       default: 1,
     },
-    stock: { type: Number, default: 0 },
+    //stock: { type: Number, default: 0 },
   },
   {
     _id: false,

@@ -11,7 +11,7 @@ export const calculateCartSummary = (items = [], speedCharge =0) => {
   });
 
   const shippingCharge =
-    subtotal - discount > 500 || items.length === 0 ? 0 : 40;
+    subtotal - discount > 2500 || items.length === 0 ? 0 : 40;
 
     const totalDeliveryCharge= shippingCharge + speedCharge
 
