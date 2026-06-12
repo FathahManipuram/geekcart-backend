@@ -3,6 +3,7 @@ import { successResponse } from "../../../../common/helpers/response.js";
 import {
   getOrderByIdService,
   getOrdersService,
+  updateOrderItemStatusService,
   updateOrderStatusService,
 } from "../services/adminOrder.service.js";
 
@@ -44,4 +45,19 @@ export const updateOrderStatusController = async (req, res, next) => {
   }
 };
 
+
+//Update orderitem status
+export const updateOrderItemStatusController= async(req, res, next)=>{
+  try{
+    const result= await updateOrderItemStatusService({
+      orderId: req.params.orderId, 
+      itemId: req.params.itemId,
+      ...req.body,
+      })
+
+      return successResponse(res, HTTP_STATUS.OK, result.message)
+  }catch(err){
+    next(err)
+  }
+}
 

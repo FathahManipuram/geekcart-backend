@@ -1,5 +1,5 @@
 import Joi from "joi";
-import { ORDER_STATUSES } from "../../../../common/constants/order/orderStatus.js";
+import { ITEM_STATUSES, ORDER_STATUSES } from "../../../../common/constants/order/orderStatus.js";
 
 export const updateOrderStatusSchema = Joi.object({
   orderStatus: Joi.string()
@@ -10,4 +10,11 @@ export const updateOrderStatusSchema = Joi.object({
       "any.only": "Invalid order status",
       "string.empty": "Order status cannot be empty",
     }),
+});
+
+
+export const updateOrderItemStatusSchema = Joi.object({
+  status: Joi.string()
+    .valid(...Object.values(ITEM_STATUSES))
+    .required(),
 });

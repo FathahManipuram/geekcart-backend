@@ -1,8 +1,12 @@
-import { ORDER_STATUS_TRANSITIONS } from "../../../../common/constants/order/orderStatusTransistion.js";
+import { ITEM_STATUSES, ORDER_STATUSES } from "../../../../common/constants/order/orderStatus.js";
+import { ITEM_STATUS_TRANSITIONS, ORDER_STATUS_TRANSITIONS } from "../../../../common/constants/order/orderStatusTransistion.js";
 import { HTTP_STATUS } from "../../../../common/constants/statusCode.js";
 import { AppError } from "../../../../common/utils/AppError.js";
+import { recalculateOrderStatus } from "../../../user-side/order/helpers/recalculateOrderStatus.js";
 import { Order } from "../../../user-side/order/models/order.model.js"
 
+
+// Get all Orders
 export const getOrdersService = async({
 	page= 1,
 	limit=10,
@@ -36,7 +40,7 @@ const skip= (page-1) * limit
         .limit(Number(limit))
         .lean(),
 
-      Order.countDocuments(),
+      Order.countDocuments(query),
 
       Order.countDocuments({
         orderStatus: { $in: ["PLACED", "PROCESSING"] },
@@ -57,7 +61,7 @@ const skip= (page-1) * limit
       ]),
     ]);
 
-
+console.log("revenue", revenueResult)
 	const totalRevenue= revenueResult[0]?.totalRevenue || 0
 
 return {
@@ -99,6 +103,8 @@ console.log(orderId)
 
 }
 
+
+// UPdate All order status
 export const updateOrderStatusService= async({orderId, orderStatus})=>{
   const order= await Order.findById(orderId)
 
@@ -123,13 +129,17 @@ export const updateOrderStatusService= async({orderId, orderStatus})=>{
 
   order.statusHistory.push({ status: orderStatus, updatedBy: "ADMIN"});
 
-  for (const item of order.items) {
-    item.itemStatus = orderStatus;
 
-    item.itemStatusHistory.push({
-      status: orderStatus,
-      updatedBy: "ADMIN",
-    });
+  for (const item of order.items) {
+    if(item.itemStatus === currentStatus){
+        item.itemStatus = orderStatus;
+
+        item.itemStatusHistory.push({
+          status: orderStatus,
+          updatedBy: "ADMIN",
+        });
+
+    }
   }
 
   if(orderStatus==="CANCELLED"){
@@ -145,4 +155,72 @@ export const updateOrderStatusService= async({orderId, orderStatus})=>{
     message: "Order status updated successfully",
     data: order,
   };
+}
+
+
+//Update orderitem status
+export const updateOrderItemStatusService= async({orderId, itemId, status})=>{
+  const order= await Order.findById(orderId)
+
+  if(!order){
+       throw new AppError("Order not found", HTTP_STATUS.NOT_FOUND);
+  }
+
+  const item= order.items.id(itemId)
+
+  if(!item){
+     throw new AppError("Item not found", HTTP_STATUS.NOT_FOUND);
+  }
+
+
+const allowedStatuses= ITEM_STATUS_TRANSITIONS[item.itemStatus] || []
+
+
+console.log("Current Status:", item.itemStatus);
+console.log("Requested Status:", status);
+console.log("Allowed Statuses:", allowedStatuses);
+
+if(!allowedStatuses.includes(status)){
+  throw new AppError("Invalid status transition", HTTP_STATUS.BAD_REQUEST);
+}
+
+
+  item.itemStatus= status;
+
+  item.itemStatusHistory.push({
+    status,
+    updatedBy: "ADMIN"
+  })
+
+  // const newOrderStatus= recalculateOrderStatus(order.items)
+
+  // if(newOrderStatus && newOrderStatus!== order.orderStatus){
+  //   order.orderStatus= newOrderStatus
+
+  //   order.statusHistory.push({
+  //     status: newOrderStatus,
+  //     updatedBy: "ADMIN"
+  //   })
+  // }
+
+
+  if (
+    order.items.every((item) => item.itemStatus === ITEM_STATUSES.DELIVERED)
+  ) {
+    order.orderStatus = ORDER_STATUSES.DELIVERED;
+  }
+
+  if (
+    order.items.every((item) => item.itemStatus === ITEM_STATUSES.CANCELLED)
+  ) {
+    order.orderStatus = ORDER_STATUSES.CANCELLED;
+  }
+
+
+await order.save()
+
+return {
+  message: "Item status updated successfully",
+};
+
 }
