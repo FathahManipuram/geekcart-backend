@@ -1,9 +1,10 @@
 export const parseProductFormData = (req, res, next) => {
   try {
     
+    
     const jsonFields = ["manufacturer", "variants", "variantGroups"];
 
-   
+
     for (const field of jsonFields) {
       if (
         typeof req.body[field] === "string" &&
