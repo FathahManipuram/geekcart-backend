@@ -1,3 +1,4 @@
+import { ITEM_STATUSES } from "../../../../common/constants/order/orderStatus.js";
 import { HTTP_STATUS } from "../../../../common/constants/statusCode.js";
 import { AppError } from "../../../../common/utils/AppError.js";
 import { ReturnRequest } from "../../../admin-side/return-management/models/return.model.js";
@@ -24,29 +25,52 @@ console.log("item :", item)
     if (!item) continue;
 	
 console.log("Current Item Status:", item.itemStatus);
-    if (item.itemStatus !== "DELIVERED") {
+    if (item.itemStatus !== ITEM_STATUSES.DELIVERED) {
       throw new AppError(
         "Only delivered items can be returned",
         HTTP_STATUS.BAD_REQUEST,
       );
     }
 
-    item.itemStatus = "RETURN_PENDING";
+    item.itemStatus = ITEM_STATUSES.RETURN_PENDING;
 
     item.itemStatusHistory.push({
-      status: "RETURN_PENDING",
+      status: ITEM_STATUSES.RETURN_PENDING,
       updatedBy: "USER",
     });
 
-    await ReturnRequest.create({
+    const returnRequest= await ReturnRequest.create({
       order: order._id,
-      orderItem: item._id,
+      orderItemId: item._id,
       user: userId,
+
+      itemSnapshot: {
+        productId: item.product,
+        variantId: item.variantId,
+        name: item.name,
+        image: item.image,
+        size: item.size,
+        color: item.color,
+        priceAtPurchase: item.salePrice ?? item.price,
+      },
       reason,
+      status: "RETURN_PENDING",
+
+      statusHistory: [
+        {
+          status: "RETURN_PENDING",
+          updatedBy: "USER",
+        },
+      ],
     });
+
+    item.returnRequestId = returnRequest._id;
   }
 
+  
+
   await order.save();
+
 
   return {
     message: "Return request submitted successfully",
