@@ -1,32 +1,30 @@
+import {
+  ITEM_STATUSES,
+  ORDER_STATUSES,
+} from "../../../../common/constants/order/orderStatus.js";
 
 export const recalculateOrderStatus = (items) => {
   const statuses = items.map((item) => item.itemStatus);
 
-  if (statuses.every((status) => status === "CANCELLED")) {
-    return "FULLY_CANCELLED";
+  if (statuses.every((status) => status === ITEM_STATUSES.CANCELLED)) {
+    return ORDER_STATUSES.CANCELLED;
   }
 
-  if (statuses.some((status) => status === "CANCELLED")) {
-    return "PARTIALLY_CANCELLED";
+  if (statuses.every((status) => status === ITEM_STATUSES.DELIVERED)) {
+    return ORDER_STATUSES.DELIVERED;
   }
 
-  if (statuses.every((status) => status === "DELIVERED")) {
-    return "DELIVERED";
+  if (statuses.every((status) => status === ITEM_STATUSES.OUT_FOR_DELIVERY)) {
+    return ORDER_STATUSES.OUT_FOR_DELIVERY;
   }
 
-  if (statuses.some((status) => status === "OUT_FOR_DELIVERY")) {
-    return "OUT_FOR_DELIVERY";
+  if (statuses.every((status) => status === ITEM_STATUSES.SHIPPED)) {
+    return ORDER_STATUSES.SHIPPED;
   }
 
-  if (statuses.some((status) => status === "SHIPPED")) {
-    return statuses.every((status) => status === "SHIPPED")
-      ? "SHIPPED"
-      : "PARTIALLY_SHIPPED";
+  if (statuses.every((status) => status === ITEM_STATUSES.PROCESSING)) {
+    return ORDER_STATUSES.PROCESSING;
   }
 
-  if (statuses.some((status) => status === "PROCESSING")) {
-    return "PROCESSING";
-  }
-
-  return "PLACED";
+  return ORDER_STATUSES.PLACED;
 };
