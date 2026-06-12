@@ -9,7 +9,7 @@ import { Order } from "../../../user-side/order/models/order.model.js"
 // Get all Orders
 export const getOrdersService = async({
 	page= 1,
-	limit=10,
+	limit=5,
 	search="",
 	status,
 	sort,
