@@ -605,7 +605,7 @@ export const getProductsService = async (query) => {
    sort = "latest",
  } = query;
 
-  
+  console.log("QUERY ", query)
   const filters = {
     isDeleted: false,
   };
