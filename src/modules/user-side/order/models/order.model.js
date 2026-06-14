@@ -149,9 +149,7 @@ const orderSchema = new mongoose.Schema(
       type: String,
       enum: MODEL_ORDER_STATUSES,
 
-      default: function () {
-        return this.paymentMethod === "COD" ? "PLACED" : "PENDING";
-      },
+      default: "PLACED",
       index: true,
     },
 

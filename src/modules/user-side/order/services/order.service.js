@@ -17,8 +17,15 @@ export const createOrderService = async (
   {userId,
   addressId,
   deliveryMethod,
-  paymentMethod,}
+  paymentMethod,
+  paymentDetails,
+  }
 ) => {
+
+  if (paymentMethod === "RAZORPAY" && !paymentDetails?.razorpayPaymentId) {
+    throw new AppError("Payment details are required", HTTP_STATUS.BAD_REQUEST);
+  }
+  
   const address = await Address.findOne({_id: addressId, userId});
  
 
@@ -37,6 +44,8 @@ const validationResult= await validateCartItems(cart.items)
 if(!validationResult.valid){
 	throw new AppError("Checkout Validation failed", HTTP_STATUS.BAD_REQUEST)
 }
+
+
 
 const speedCharge= deliveryMethod === "EXPRESS" ? 25 : 0
 
@@ -83,6 +92,21 @@ const order = await Order.create({
 
   deliveryMethod,
   paymentMethod,
+  paymentStatus: paymentMethod === "RAZORPAY" ? "PAID" : "PENDING",
+
+paymentDetails: 
+paymentMethod === "RAZORPAY" ? {
+  razorpayOrderId:
+          paymentDetails?.razorpayOrderId,
+
+        razorpayPaymentId:
+          paymentDetails?.razorpayPaymentId,
+
+        razorpaySignature:
+          paymentDetails?.razorpaySignature,
+
+        paidAt: new Date(),
+} : null,
 
 
   subtotal,
