@@ -51,7 +51,6 @@ const existingItemIndex = activeCart.items.findIndex(
     (item) => item.variantId.toString() === variantId.toString()
   );
 
-// const isNewItem= existingItemIndex === -1
 
 if(existingItemIndex < 0 && activeCart.items.length >=10){
   throw new AppError(
