@@ -1,5 +1,4 @@
 import { HTTP_STATUS } from "../constants/statusCode.js"
-import { successResponse } from "../helpers/response.js"
 import { AppError } from "../utils/AppError.js"
 
 export const validate = (schema)=>(req, res, next)=>{

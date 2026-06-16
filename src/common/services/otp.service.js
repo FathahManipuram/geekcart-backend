@@ -1,11 +1,9 @@
 import { compareOtp, generateOtp, hashOtp } from "../utils/otp.js";
 import Otp from "../../modules/auth/models/otp.model.js";
-import { sendEmail } from "../../infrastructure/services/email.service.js";
-import { otpTemplate } from "../utils/emailTemplates.js";
 import { AppError } from "../utils/AppError.js";
 import { OTP_TYPES } from "../constants/otpTypes.js";
-import { getUserByEmail, getUserById } from "./user.services.js";
 import { HTTP_STATUS } from "../constants/statusCode.js";
+import { getUserById } from "./user.services.js";
 
 //Create OTP
 export const createOtp = async ({

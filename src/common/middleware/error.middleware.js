@@ -1,7 +1,7 @@
 import { HTTP_STATUS } from "../constants/statusCode.js"
 import { errorResponse } from "../helpers/response.js"
 
-export const errorMiddleware= (err, req, res, next)=>{
+export const errorMiddleware= (err, req, res, _next)=>{
 	console.error("ERROR: ",err)
 	const statusCode= err.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR
 

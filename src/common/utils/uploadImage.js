@@ -1,4 +1,3 @@
-import { HTTP_STATUS } from "../constants/statusCode.js"
 import { AppError } from "./AppError.js"
 import { uploadFile } from "./uploadFile.js"
 
