@@ -1,14 +1,11 @@
-import { OTP_TYPES } from "../../../common/constants/otpTypes.js";
 import { HTTP_STATUS } from "../../../common/constants/statusCode.js";
 import { successResponse } from "../../../common/helpers/response.js";
-import { resendOtp } from "../../../common/services/otp.service.js";
-import { AppError } from "../../../common/utils/AppError.js";
 import {
   clearRefreshTokenCookie,
   setRefreshTokenCookie,
 } from "../../../common/utils/cookie.js";
-import { generateAccessToken } from "../../../common/utils/jwt.js";
 import * as authService from "../services/auth.service.js";
+
 
 //Register
 export const registerController = async (req, res, next) => {

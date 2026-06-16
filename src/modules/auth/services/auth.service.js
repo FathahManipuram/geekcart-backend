@@ -228,7 +228,7 @@ export const refreshTokenService = async ({ refreshToken }) => {
 
 // Admin refreshToken
 export const adminRefreshTokenService = async ({ refreshToken }) => {
-  alert("refresh token called")
+
   if (!refreshToken) {
     throw new AppError("Refresh token required", HTTP_STATUS.BAD_REQUEST);
   }
