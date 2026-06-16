@@ -1,5 +1,5 @@
 import Joi from "joi";
-import { categoryName, color, costPrice, description, fabric, images, price, productName, salePrice, size, sku, sleeve, stock } from "../../../../common/validation/base.validation.js";
+import { categoryName, color, costPrice, description, fabric, price, productName, salePrice, size, sku, sleeve, stock } from "../../../../common/validation/base.validation.js";
 
 
 const variantGroupValidationSchema = Joi.object({

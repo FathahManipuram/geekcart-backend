@@ -6,9 +6,8 @@ import { Category } from "../../category-management/models/category.model.js";
 import { Product } from "../models/product.model.js";
 import { Subcategory } from "../../subcategory-management/models/subcategory.model.js";
 import { Variant } from "../models/variant.model.js";
-import { buildQuery } from "../../../../common/utils/buildQuery.js";
 import { deleteImageFromCloudinary } from "../../../../common/utils/cloudinary.delete.js";
-import { create } from "hbs";
+
 
 
 //Create Product

@@ -1,5 +1,5 @@
 import { HTTP_STATUS } from "../../../../common/constants/statusCode.js"
-import { errorResponse, successResponse } from "../../../../common/helpers/response.js"
+import { successResponse } from "../../../../common/helpers/response.js"
 import { createSubcategoryService, deleteSubcategoryService, fetchSubcategoriesService, updateSubcategoryService } from "../services/subcategory.service.js"
 
 

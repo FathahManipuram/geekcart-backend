@@ -1,5 +1,4 @@
 import mongoose from "mongoose"
-import { Category } from "../../category-management/models/category.model.js";
 
 const subcategorySchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },

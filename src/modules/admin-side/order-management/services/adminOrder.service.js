@@ -2,7 +2,6 @@ import { ITEM_STATUSES, ORDER_STATUSES } from "../../../../common/constants/orde
 import { ITEM_STATUS_TRANSITIONS, ORDER_STATUS_TRANSITIONS } from "../../../../common/constants/order/orderStatusTransistion.js";
 import { HTTP_STATUS } from "../../../../common/constants/statusCode.js";
 import { AppError } from "../../../../common/utils/AppError.js";
-import { recalculateOrderStatus } from "../../../user-side/order/helpers/recalculateOrderStatus.js";
 import { Order } from "../../../user-side/order/models/order.model.js"
 
 
@@ -12,7 +11,7 @@ export const getOrdersService = async({
 	limit=5,
 	search="",
 	status,
-	sort,
+	_sort,
 })=>{
 const query={}
 

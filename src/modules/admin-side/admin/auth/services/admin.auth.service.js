@@ -1,5 +1,8 @@
+import { comparePassword } from "../../../../../common/utils/encryption"
+import { generateAccessToken, generateRefreshToken } from "../../../../../common/utils/jwt"
 import { HTTP_STATUS } from "../../../../common/constants/statusCode"
 import { AppError } from "../../../../common/utils/AppError"
+import { User } from "../../../../user-side/user-profile/models/user.model"
 
 //login user
 export const adminLoginService= async({email, password})=>{
@@ -60,7 +63,7 @@ export const getUsers= async (query)=>{
 }
 
 export const toggleBlockUser= async (userId)=>{
-		const user= await findById(userId)
+		const user= await User.findById(userId)
 		if(!user){
 			throw new AppError("User not found", HTTP_STATUS.NOT_FOUND)
 		}
