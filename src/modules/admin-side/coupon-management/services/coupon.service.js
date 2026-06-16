@@ -29,6 +29,7 @@ export const getCouponService = async ({
   limit = 5,
   search = "",
   status,
+  type,
 }) => {
   const query = {
     isDeleted: false,
@@ -51,6 +52,10 @@ export const getCouponService = async ({
 
   if (status === "INACTIVE") {
     query.isActive = false;
+  }
+
+  if(type && type!=="ALL"){
+    query.discountType= type
   }
 
   const skip = (page - 1) * limit;
