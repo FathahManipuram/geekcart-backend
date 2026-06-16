@@ -1,4 +1,3 @@
-import { Category } from "../../../admin-side/category-management/models/category.model.js";
 import { Product } from "../../../admin-side/product-management/models/product.model.js";
 import { Variant } from "../../../admin-side/product-management/models/variant.model.js";
 import { Subcategory } from "../../../admin-side/subcategory-management/models/subcategory.model.js";

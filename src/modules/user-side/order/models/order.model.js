@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import { ORDER_STATUSES } from "../../../../common/constants/order/orderStatus.js";
 import { MODEL_ITEM_STATUSES, MODEL_ORDER_STATUSES } from "../../../../common/constants/order/model.constants.js";
 
 
