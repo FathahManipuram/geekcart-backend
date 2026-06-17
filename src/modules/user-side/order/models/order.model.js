@@ -75,6 +75,12 @@ const orderItemSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+
+    refundStatus: {
+      type: String,
+      enum: ["PENDING", "COMPLETED"],
+      default: null,
+    },
   },
   { _id: true },
 );

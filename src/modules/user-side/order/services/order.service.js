@@ -10,6 +10,7 @@ import { Order } from "../models/order.model.js";
 import { ITEM_STATUSES, ORDER_STATUSES } from "../../../../common/constants/order/orderStatus.js";
 import { recalculateOrderStatus } from "../helpers/recalculateOrderStatus.js";
 import { generateInvoicePdf } from "../../../../common/utils/pdf/invoicePdf.js";
+import { creditWallet } from "../../wallet/services/wallet.service.js";
 
 
 // Create order
@@ -248,9 +249,6 @@ console.log(order)
   }
 const cancellableStatuses = [ITEM_STATUSES.PLACED, ITEM_STATUSES.PROCESSING];
 
-if (!cancellableStatuses.includes(item.itemStatus)) {
-  throw new AppError("Item cannot be cancelled", HTTP_STATUS.BAD_REQUEST);
-}
 
 item.itemStatus = ITEM_STATUSES.CANCELLED;
 
@@ -264,6 +262,26 @@ item.cancellation = {
   cancelledAt: new Date(),
   cancelledBy: "USER",
 };
+
+if (order.paymentMethod === "RAZORPAY" && order.paymentStatus === "PAID") {
+  const refundAmount = (item.salePrice || item.price) * item.quantity;
+
+if (item.refundStatus === "COMPLETED") {
+  throw new AppError("Refund already processed", HTTP_STATUS.BAD_REQUEST);
+}
+
+
+  await creditWallet({
+    userId: order.user,
+    amount: refundAmount,
+    reason: "ITEM_CANCELLED",
+    description: `Refund for cancelled item ${item.name}`,
+    referenceId: order._id,
+  });
+
+  item.refundAmount = refundAmount;
+  item.refundStatus = "COMPLETED";
+}
 
   const newOrderStatus= recalculateOrderStatus(order.items)
 
@@ -342,6 +360,36 @@ const cancellableStatuses = [ITEM_STATUSES.PLACED, ITEM_STATUSES.PROCESSING];
   status: ORDER_STATUSES.CANCELLED,
   updatedBy: "USER",
  })
+
+
+let totalRefund = 0;
+
+for (const item of order.items) {
+  if (cancellableStatuses.includes(item.itemStatus)) {
+    totalRefund += (item.salePrice || item.price) * item.quantity;
+  }
+}
+
+if (
+  order.paymentMethod === "RAZORPAY" &&
+  order.paymentStatus === "PAID" &&
+  totalRefund > 0
+) {
+  await creditWallet({
+    userId: order.user,
+
+    amount: totalRefund,
+
+    reason: "ORDER_CANCELLED",
+
+    description: `Refund for cancelled order ${order.orderNumber}`,
+
+    referenceId: order._id,
+  });
+
+  order.paymentStatus = "FULLY_REFUNDED";
+}
+
 
  await order.save()
 

@@ -11,6 +11,7 @@ import checkoutRoutes from "../modules/user-side/checkout/routes/checkout.routes
 import orderRoutes from "../modules/user-side/order/routes/order.routes.js"
 import returnRoutes from "../modules/user-side/return/routes/return.routes.js"
 import paymentRoutes from "../modules/user-side/payment/routes/payment.routes.js"
+import walletRoutes from "../modules/user-side/wallet/routes/wallet.routes.js"
 
 //Admin
 import userManagementRoutes from "../modules/admin-side/user-management/routes/user-management.routes.js"
@@ -36,6 +37,7 @@ router.use("/checkout", checkoutRoutes)
 router.use("/orders", orderRoutes)
 router.use("/return", returnRoutes)
 router.use("/payments", paymentRoutes)
+router.use("/wallet", walletRoutes)
 
 
 //Admin Routes

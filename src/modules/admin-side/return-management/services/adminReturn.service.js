@@ -4,6 +4,7 @@ import { HTTP_STATUS } from "../../../../common/constants/statusCode.js";
 import { AppError } from "../../../../common/utils/AppError.js";
 import { Order } from "../../../user-side/order/models/order.model.js";
 import { User } from "../../../user-side/user-profile/models/user.model.js";
+import { creditWallet } from "../../../user-side/wallet/services/wallet.service.js";
 import { Variant } from "../../product-management/models/variant.model.js";
 import { ReturnRequest } from "../models/return.model.js";
 
@@ -135,11 +136,28 @@ returnRequest.adminNote= adminNote
       item.quantity * returnRequest.itemSnapshot.priceAtPurchase;
   }
 
+if (status === RETURN_REQUEST_STATUSES.RETURN_COMPLETED) {
+  if (returnRequest.refundStatus === "COMPLETED") {
+    throw new AppError("Refund already processed", HTTP_STATUS.BAD_REQUEST);
+  }
 
-  if (status === RETURN_REQUEST_STATUSES.RETURN_COMPLETED) {
-    returnRequest.resolvedAt = new Date();
+  await creditWallet({
+    userId: returnRequest.user,
 
-	await Variant.updateOne(
+    amount: returnRequest.refundAmount,
+
+    reason: "RETURN_REFUND",
+
+    description: `Refund for returned item ${returnRequest.itemSnapshot.name}`,
+
+    referenceId: returnRequest._id,
+  });
+
+  returnRequest.refundStatus = "COMPLETED";
+
+  returnRequest.resolvedAt = new Date();
+
+  await Variant.updateOne(
     { _id: returnRequest.itemSnapshot.variantId },
     {
       $inc: {
@@ -147,7 +165,7 @@ returnRequest.adminNote= adminNote
       },
     },
   );
-  }
+}
 
 
     await order.save();

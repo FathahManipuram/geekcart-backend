@@ -3,6 +3,8 @@ import { ITEM_STATUS_TRANSITIONS, ORDER_STATUS_TRANSITIONS } from "../../../../c
 import { HTTP_STATUS } from "../../../../common/constants/statusCode.js";
 import { AppError } from "../../../../common/utils/AppError.js";
 import { Order } from "../../../user-side/order/models/order.model.js"
+import { creditWallet } from "../../../user-side/wallet/services/wallet.service.js";
+import { Variant } from "../../product-management/models/variant.model.js";
 
 
 // Get all Orders
@@ -104,122 +106,262 @@ console.log(orderId)
 
 
 // UPdate All order status
-export const updateOrderStatusService= async({orderId, orderStatus})=>{
-  const order= await Order.findById(orderId)
+export const updateOrderStatusService = async ({ orderId, orderStatus }) => {
+  const order = await Order.findById(orderId);
 
-  if(!order){
-    throw new AppError("Order not fount", HTTP_STATUS.NOT_FOUND)
+  if (!order) {
+    throw new AppError("Order not found", HTTP_STATUS.NOT_FOUND);
   }
 
-  const currentStatus= order.orderStatus
+  const currentStatus = order.orderStatus;
 
-  const allowedStatuses= ORDER_STATUS_TRANSITIONS[currentStatus] ||[]
+  const allowedStatuses = ORDER_STATUS_TRANSITIONS[currentStatus] || [];
 
-  const isValidTransition= allowedStatuses.includes(orderStatus)
-
-  if(!isValidTransition){
+  if (!allowedStatuses.includes(orderStatus)) {
     throw new AppError(
       `Cannot change order status from ${currentStatus} to ${orderStatus}`,
       HTTP_STATUS.BAD_REQUEST,
     );
   }
 
-  order.orderStatus= orderStatus;
+ 
+  if (orderStatus === ORDER_STATUSES.CANCELLED) {
+  
+    if (order.paymentStatus === "FULLY_REFUNDED") {
+      throw new AppError("Order already refunded", HTTP_STATUS.BAD_REQUEST);
+    }
 
-  order.statusHistory.push({ status: orderStatus, updatedBy: "ADMIN"});
+    const refundableItems = order.items.filter(
+      (item) =>
+        ![ITEM_STATUSES.DELIVERED, ITEM_STATUSES.CANCELLED].includes(
+          item.itemStatus,
+        ),
+    );
+
+    const refundAmount = refundableItems.reduce(
+      (sum, item) => sum + (item.salePrice || item.price) * item.quantity,
+      0,
+    );
+
+    
+    for (const item of refundableItems) {
+      item.itemStatus = ITEM_STATUSES.CANCELLED;
+
+      item.itemStatusHistory.push({
+        status: ITEM_STATUSES.CANCELLED,
+        updatedBy: "ADMIN",
+      });
+
+      item.cancellation = {
+        cancelledAt: new Date(),
+        cancelledBy: "ADMIN",
+      };
+
+      item.refundAmount = (item.salePrice || item.price) * item.quantity;
+
+      item.refundStatus = "COMPLETED";
+    }
+
+  
+    await Promise.all(
+      refundableItems.map((item) =>
+        Variant.updateOne(
+          { _id: item.variantId },
+          {
+            $inc: {
+              stock: item.quantity,
+            },
+          },
+        ),
+      ),
+    );
 
 
-  for (const item of order.items) {
-    if(item.itemStatus === currentStatus){
+    if (
+      order.paymentMethod === "RAZORPAY" &&
+      order.paymentStatus === "PAID" &&
+      refundAmount > 0
+    ) {
+      await creditWallet({
+        userId: order.user,
+
+        amount: refundAmount,
+
+        reason: "ORDER_CANCELLED",
+
+        description: `Refund for cancelled order ${order.orderNumber}`,
+
+        referenceId: order._id,
+      });
+
+      order.paymentStatus = "FULLY_REFUNDED";
+    }
+
+    order.cancellation = {
+      cancelledAt: new Date(),
+      cancelledBy: "ADMIN",
+    };
+  }
+
+
+  else {
+    for (const item of order.items) {
+      if (item.itemStatus === currentStatus) {
         item.itemStatus = orderStatus;
 
         item.itemStatusHistory.push({
           status: orderStatus,
           updatedBy: "ADMIN",
         });
-
+      }
     }
   }
 
-  if(orderStatus==="CANCELLED"){
-    order.cancellation={
-      cancelledAt: new Date(),
-      cancelledBy: "ADMIN",
-    }
+  order.orderStatus = orderStatus;
+
+  order.statusHistory.push({
+    status: orderStatus,
+    updatedBy: "ADMIN",
+  });
+
+  if (
+    orderStatus === ORDER_STATUSES.DELIVERED &&
+    order.paymentMethod === "COD" &&
+    order.paymentStatus !== "PAID"
+  ) {
+    order.paymentStatus = "PAID";
   }
 
-  await order.save()
+  await order.save();
 
   return {
     message: "Order status updated successfully",
     data: order,
   };
-}
+};
 
 
 //Update orderitem status
-export const updateOrderItemStatusService= async({orderId, itemId, status})=>{
-  const order= await Order.findById(orderId)
+export const updateOrderItemStatusService = async ({
+  orderId,
+  itemId,
+  status,
+}) => {
+  const order = await Order.findById(orderId);
 
-  if(!order){
-       throw new AppError("Order not found", HTTP_STATUS.NOT_FOUND);
+  if (!order) {
+    throw new AppError("Order not found", HTTP_STATUS.NOT_FOUND);
   }
 
-  const item= order.items.id(itemId)
+  const item = order.items.id(itemId);
 
-  if(!item){
-     throw new AppError("Item not found", HTTP_STATUS.NOT_FOUND);
+  if (!item) {
+    throw new AppError("Item not found", HTTP_STATUS.NOT_FOUND);
   }
 
+  const allowedStatuses = ITEM_STATUS_TRANSITIONS[item.itemStatus] || [];
 
-const allowedStatuses= ITEM_STATUS_TRANSITIONS[item.itemStatus] || []
+  if (!allowedStatuses.includes(status)) {
+    throw new AppError("Invalid status transition", HTTP_STATUS.BAD_REQUEST);
+  }
 
-
-console.log("Current Status:", item.itemStatus);
-console.log("Requested Status:", status);
-console.log("Allowed Statuses:", allowedStatuses);
-
-if(!allowedStatuses.includes(status)){
-  throw new AppError("Invalid status transition", HTTP_STATUS.BAD_REQUEST);
-}
-
-
-  item.itemStatus= status;
+  item.itemStatus = status;
 
   item.itemStatusHistory.push({
     status,
-    updatedBy: "ADMIN"
-  })
+    updatedBy: "ADMIN",
+  });
 
-  // const newOrderStatus= recalculateOrderStatus(order.items)
 
-  // if(newOrderStatus && newOrderStatus!== order.orderStatus){
-  //   order.orderStatus= newOrderStatus
+  if (status === ITEM_STATUSES.CANCELLED) {
+    if (item.refundStatus === "COMPLETED") {
+      throw new AppError("Item already refunded", HTTP_STATUS.BAD_REQUEST);
+    }
 
-  //   order.statusHistory.push({
-  //     status: newOrderStatus,
-  //     updatedBy: "ADMIN"
-  //   })
-  // }
+    const refundAmount = (item.salePrice || item.price) * item.quantity;
+
+    item.cancellation = {
+      cancelledAt: new Date(),
+      cancelledBy: "ADMIN",
+    };
+
+
+    await Variant.updateOne(
+      { _id: item.variantId },
+      {
+        $inc: {
+          stock: item.quantity,
+        },
+      },
+    );
+
+
+    if (order.paymentMethod === "RAZORPAY" && order.paymentStatus === "PAID") {
+      await creditWallet({
+        userId: order.user,
+
+        amount: refundAmount,
+
+        reason: "ITEM_CANCELLED",
+
+        description: `Refund for cancelled item ${item.name}`,
+
+        referenceId: order._id,
+      });
+
+      item.refundAmount = refundAmount;
+
+      item.refundStatus = "COMPLETED";
+    }
+  }
+
 
 
   if (
-    order.items.every((item) => item.itemStatus === ITEM_STATUSES.DELIVERED)
+    order.items.every((item) => item.itemStatus === ITEM_STATUSES.DELIVERED) &&
+    order.orderStatus !== ORDER_STATUSES.DELIVERED
   ) {
     order.orderStatus = ORDER_STATUSES.DELIVERED;
+
+    order.statusHistory.push({
+      status: ORDER_STATUSES.DELIVERED,
+      updatedBy: "ADMIN",
+    });
+
+    if (order.paymentMethod === "COD") {
+      order.paymentStatus = "PAID";
+
+      order.paymentDetails = {
+        ...order.paymentDetails,
+        paidAt: new Date(),
+      };
+    }
   }
 
-  if (
-    order.items.every((item) => item.itemStatus === ITEM_STATUSES.CANCELLED)
-  ) {
-    order.orderStatus = ORDER_STATUSES.CANCELLED;
+if (
+  order.items.every((item) => item.itemStatus === ITEM_STATUSES.CANCELLED) &&
+  order.orderStatus !== ORDER_STATUSES.CANCELLED
+) {
+  order.orderStatus = ORDER_STATUSES.CANCELLED;
+
+  order.statusHistory.push({
+    status: ORDER_STATUSES.CANCELLED,
+    updatedBy: "ADMIN",
+  });
+
+  order.cancellation = {
+    cancelledAt: new Date(),
+    cancelledBy: "ADMIN",
+  };
+
+  if (order.paymentMethod === "RAZORPAY" && order.paymentStatus === "PAID") {
+    order.paymentStatus = "FULLY_REFUNDED";
   }
-
-
-await order.save()
-
-return {
-  message: "Item status updated successfully",
-};
-
 }
+
+  await order.save();
+
+  return {
+    message: "Item status updated successfully",
+  };
+}; 

@@ -70,6 +70,11 @@ const returnRequestSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    refundStatus: {
+      type: String,
+      enum: ["PENDING", "COMPLETED"],
+      default: "PENDING",
+    },
 
     adminNote: String,
 
