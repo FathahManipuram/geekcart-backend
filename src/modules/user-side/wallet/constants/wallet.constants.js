@@ -1,0 +1,17 @@
+// wallet.constants.js
+
+export const WALLET_TRANSACTION_TYPES = ["CREDIT", "DEBIT"];
+
+export const WALLET_TRANSACTION_REASONS = [
+  "ADD_MONEY",
+
+  "RETURN_REFUND",
+  "ORDER_CANCELLED",
+  "REFERRAL_BONUS",
+  "CASHBACK",
+
+  "ORDER_PAYMENT",
+
+  "ADMIN_CREDIT",
+  "ADMIN_DEBIT",
+];
