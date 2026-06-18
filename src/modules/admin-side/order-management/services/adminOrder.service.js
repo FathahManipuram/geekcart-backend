@@ -3,6 +3,7 @@ import { ITEM_STATUS_TRANSITIONS, ORDER_STATUS_TRANSITIONS } from "../../../../c
 import { HTTP_STATUS } from "../../../../common/constants/statusCode.js";
 import { AppError } from "../../../../common/utils/AppError.js";
 import { Order } from "../../../user-side/order/models/order.model.js"
+import { processReferralReward } from "../../../user-side/referral/services/referral.service.js";
 import { creditWallet } from "../../../user-side/wallet/services/wallet.service.js";
 import { Variant } from "../../product-management/models/variant.model.js";
 
@@ -230,6 +231,7 @@ export const updateOrderStatusService = async ({ orderId, orderStatus }) => {
     order.paymentStatus !== "PAID"
   ) {
     order.paymentStatus = "PAID";
+     await processReferralReward(order.user);
   }
 
   await order.save();
