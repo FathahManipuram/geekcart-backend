@@ -179,8 +179,20 @@ const orderSchema = new mongoose.Schema(
       },
     ],
 
+    coupon: {
+      couponId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Coupon",
+        default: null,
+      },
 
-    
+      code: String,
+
+      discountAmount: {
+        type: Number,
+        default: 0,
+      },
+    },
 
     subtotal: { type: Number, required: true, min: 0 },
     speedCharge: { type: Number, default: 0 },

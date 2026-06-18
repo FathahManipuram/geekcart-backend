@@ -11,157 +11,203 @@ import { ITEM_STATUSES, ORDER_STATUSES } from "../../../../common/constants/orde
 import { recalculateOrderStatus } from "../helpers/recalculateOrderStatus.js";
 import { generateInvoicePdf } from "../../../../common/utils/pdf/invoicePdf.js";
 import { creditWallet } from "../../wallet/services/wallet.service.js";
+import { processReferralReward } from "../../referral/services/referral.service.js";
+import { Coupon } from "../../../admin-side/coupon-management/models/coupon.model.js";
+import { calculateCouponDiscount } from "../../coupon/helper/calculateCouponDiscount.helper.js";
+import { validateCoupon } from "../../coupon/helper/validateCoupon.helper.js";
 
 
 // Create order
-export const createOrderService = async (
-  {userId,
+export const createOrderService = async ({
+  userId,
   addressId,
   deliveryMethod,
   paymentMethod,
   paymentDetails,
-  }
-) => {
-
+  couponId,
+}) => {
   if (paymentMethod === "RAZORPAY" && !paymentDetails?.razorpayPaymentId) {
     throw new AppError("Payment details are required", HTTP_STATUS.BAD_REQUEST);
   }
-  
-  const address = await Address.findOne({_id: addressId, userId});
- 
 
-  if(!address){
-	throw new AppError("Address not found", HTTP_STATUS.NOT_FOUND)
+  const address = await Address.findOne({
+    _id: addressId,
+    userId,
+  });
+
+  if (!address) {
+    throw new AppError("Address not found", HTTP_STATUS.NOT_FOUND);
   }
 
-  const cart= await Cart.findOne({userId})
-  
-  
-  if(!cart || !cart.items.length){
-	throw new AppError("Cart is Empty", HTTP_STATUS.BAD_REQUEST)
+  const cart = await Cart.findOne({ userId });
+
+  if (!cart || !cart.items.length) {
+    throw new AppError("Cart is empty", HTTP_STATUS.BAD_REQUEST);
   }
 
-const validationResult= await validateCartItems(cart.items)
-if(!validationResult.valid){
-	throw new AppError("Checkout Validation failed", HTTP_STATUS.BAD_REQUEST)
-}
+  const validationResult = await validateCartItems(cart.items);
+
+  if (!validationResult.valid) {
+    throw new AppError("Checkout validation failed", HTTP_STATUS.BAD_REQUEST);
+  }
+
+  const speedCharge = deliveryMethod === "EXPRESS" ? 25 : 0;
+
+  const { subtotal, discount, shippingCharge, deliveryCharge, total } =
+    calculateCartSummary(cart.items, speedCharge);
+
+  let couponSnapshot = null;
+  let couponDiscount = 0;
+
+  if (couponId) {
+    const coupon = await Coupon.findById(couponId);
+
+    validateCoupon({
+      coupon,
+      subtotal,
+    });
+
+    couponDiscount = calculateCouponDiscount({
+      coupon,
+      subtotal,
+    });
+
+    couponSnapshot = {
+      couponId: coupon._id,
+      code: coupon.code,
+      discountAmount: couponDiscount,
+    };
+  }
+
+  const finalTotal = Math.max(0, total - couponDiscount);
 
 
-
-const speedCharge= deliveryMethod === "EXPRESS" ? 25 : 0
-
-const {
-	subtotal,
-	discount,
-	shippingCharge,
-  deliveryCharge,
-	total,
-}= calculateCartSummary(cart.items, speedCharge)
-
-
-
-const order = await Order.create({
-  user: userId,
-
-  items: cart.items.map((item) => ({
-    product: item.productId,
-    variantId: item.variantId,
-
-    name: item.name,
-    image: item.image,
-
-    size: item.size,
-    color: item.color,
-
-    quantity: item.quantity,
-
-    price: item.price,
-    salePrice: item.salePrice,
-  })),
-
-  shippingAddress: {
-    fullName: address.fullName,
-    phoneNumber: address.phoneNumber,
-    addressLine: address.addressLine,
-    landmark: address.landmark,
-    city: address.city,
-    state: address.state,
-    pincode: address.pincode,
-    country: address.country,
-    addressLabel: address.addressLabel,
-  },
-
-  deliveryMethod,
-  paymentMethod,
-  paymentStatus: paymentMethod === "RAZORPAY" ? "PAID" : "PENDING",
-
-paymentDetails: 
-paymentMethod === "RAZORPAY" ? {
-  razorpayOrderId:
-          paymentDetails?.razorpayOrderId,
-
-        razorpayPaymentId:
-          paymentDetails?.razorpayPaymentId,
-
-        razorpaySignature:
-          paymentDetails?.razorpaySignature,
-
-        paidAt: new Date(),
-} : null,
-
-
-  subtotal,
-  speedCharge,
-  shippingCharge,
-  deliveryCharge,
-  discount,
-  totalAmount: total
-});
-
-
-await Promise.all(
-  cart.items.map(async (item) => {
-    const result = await Variant.updateOne(
-      {
-        _id: item.variantId,
-        stock: { $gte: item.quantity }, 
-      },
-      {
-        $inc: { stock: -item.quantity },
-      },
-    //   { session }, 
-    );
-
-   
-    if (result.matchedCount === 0) {
-      throw new AppError(
-        `Item is out of stock or does not have enough inventory available.`,
-        HTTP_STATUS.BAD_REQUEST,
+  await Promise.all(
+    cart.items.map(async (item) => {
+      const result = await Variant.updateOne(
+        {
+          _id: item.variantId,
+          stock: {
+            $gte: item.quantity,
+          },
+        },
+        {
+          $inc: {
+            stock: -item.quantity,
+          },
+        },
       );
-    }
-  }),
-);
 
+      if (result.modifiedCount === 0) {
+        throw new AppError(
+          `${item.name} is out of stock`,
+          HTTP_STATUS.BAD_REQUEST,
+        );
+      }
+    }),
+  );
 
-  cart.items=[]
-  cart.summary={
-	subtotal: 0,
-	discount: 0,
-	shippingCharge: 0,
-	total: 0,
+  const order = await Order.create({
+    user: userId,
+
+    items: cart.items.map((item) => ({
+      product: item.productId,
+      variantId: item.variantId,
+      name: item.name,
+      image: item.image,
+      size: item.size,
+      color: item.color,
+      quantity: item.quantity,
+      price: item.price,
+      salePrice: item.salePrice,
+    })),
+
+    shippingAddress: {
+      fullName: address.fullName,
+      phoneNumber: address.phoneNumber,
+      addressLine: address.addressLine,
+      landmark: address.landmark,
+      city: address.city,
+      state: address.state,
+      pincode: address.pincode,
+      country: address.country,
+      addressLabel: address.addressLabel,
+    },
+
+    deliveryMethod,
+
+    paymentMethod,
+
+    paymentStatus: paymentMethod === "RAZORPAY" ? "PAID" : "PENDING",
+
+    paymentDetails:
+      paymentMethod === "RAZORPAY"
+        ? {
+            razorpayOrderId: paymentDetails?.razorpayOrderId,
+
+            razorpayPaymentId: paymentDetails?.razorpayPaymentId,
+
+            razorpaySignature: paymentDetails?.razorpaySignature,
+
+            paidAt: new Date(),
+          }
+        : null,
+
+    subtotal,
+
+    discount,
+
+    speedCharge,
+
+    shippingCharge,
+
+    deliveryCharge,
+
+    coupon: couponSnapshot,
+
+    totalAmount: finalTotal,
+  });
+
+  if (couponSnapshot) {
+    await Coupon.updateOne(
+      {
+        _id: couponSnapshot.couponId,
+      },
+      {
+        $inc: {
+          usedCount: 1,
+        },
+      },
+    );
   }
 
-  await cart.save()
-console.log("placed")
+  cart.items = [];
+
+  cart.summary = {
+    subtotal: 0,
+    discount: 0,
+    shippingCharge: 0,
+    total: 0,
+  };
+
+  await cart.save();
+
+  try {
+    if (paymentMethod === "RAZORPAY" && order.paymentStatus === "PAID") {
+      await processReferralReward(userId);
+    }
+  } catch (error) {
+    console.error("Referral reward failed:", error);
+  }
 
   return {
     message: "Order placed successfully",
-  data: {
-    orderId: order._id,
-    orderNumber: order.orderNumber,
-    totalAmount: order.totalAmount,
-    orderStatus: order.orderStatus,
-  },
+    data: {
+      orderId: order._id,
+      orderNumber: order.orderNumber,
+      totalAmount: order.totalAmount,
+      orderStatus: order.orderStatus,
+    },
   };
 };
 
@@ -427,3 +473,5 @@ export const downloadinvoiceService = async ({ orderId, userId, res }) => {
     res,
   });
 };
+
+
