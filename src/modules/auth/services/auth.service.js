@@ -20,10 +20,11 @@ import { HTTP_STATUS } from "../../../common/constants/statusCode.js";
 import { OAuth2Client } from "google-auth-library";
 import { User } from "../../user-side/user-profile/models/user.model.js";
 import { getUserById } from "../../../common/services/user.services.js";
+import { generateReferralCode } from "../../../common/utils/referral.util.js";
 
 //user register
 export const registerUser = async (data) => {
-  const { email, password } = data;
+  const { email, password, referralCode } = data;
   const existingUser = await User.findOne({ email });
 
   if (existingUser) {
@@ -34,6 +35,27 @@ export const registerUser = async (data) => {
 
   const { confirmPassword, ...userData } = data;
 
+  
+let referredBy = null;
+
+if (referralCode) {
+  const referrer = await User.findOne({
+    referralCode,
+  });
+
+  if (!referrer) {
+    throw new AppError("Invalid referral code", HTTP_STATUS.BAD_REQUEST);
+  }
+
+  referredBy = referrer._id;
+}
+ 
+
+  const generatedReferralCode =
+  await generateReferralCode(
+    data.fullName,
+  );
+
   const otp = await createOtp({
     email,
     type: OTP_TYPES.EMAIL_VERIFY,
@@ -41,6 +63,8 @@ export const registerUser = async (data) => {
       ...userData,
       password: hashedPassword,
       isVerified: false,
+      referralCode: generatedReferralCode,
+      referredBy,
     },
   });
 

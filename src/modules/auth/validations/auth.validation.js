@@ -9,6 +9,17 @@ export const registerSchema = Joi.object({
   email: email.required(),
   password: password.required(),
   confirmPassword: confirmPassword("password").required(),
+  referralCode: Joi.string()
+    .trim()
+    .uppercase()
+    .min(10)
+    .max(22)
+    .allow("")
+    .optional()
+    .messages({
+      "string.min": "Code is too short",
+      "string.max": "Code is too long",
+    }),
 });
 
 //Login
