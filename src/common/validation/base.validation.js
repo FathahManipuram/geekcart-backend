@@ -52,16 +52,19 @@ export const description = Joi.string().trim().min(10).max(1000);
 
 //variant
 export const size = Joi.string();
-export const images= Joi.array()
-    .items(Joi.string())
-    .min(3)
+export const images = Joi.array().items(Joi.string()).min(3);
 export const color = Joi.string();
 export const sku = Joi.string();
 export const stock = Joi.number().min(0);
-export const costPrice= Joi.number().min(0)
+export const costPrice = Joi.number().min(0);
 export const price = Joi.number().min(0);
-export const salePrice = Joi.number().min(0).allow(null)
-export const sleeve= Joi.string()
-export const fabric= Joi.string()
-export const isDefault= Joi.boolean()
-export const isActive= Joi.boolean()
+export const sleeve = Joi.string();
+export const fabric = Joi.string();
+export const isDefault = Joi.boolean();
+export const isActive = Joi.boolean();
+
+export const objectId = Joi.string().hex().length(24).messages({
+  "string.base": "Invalid ID",
+  "string.hex": "Invalid ID format",
+  "string.length": "Invalid ID length",
+});

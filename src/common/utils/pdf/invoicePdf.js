@@ -16,7 +16,6 @@ export const generateInvoicePdf = ({ order, res }) => {
   doc.pipe(res);
 
   // HEADER
-
   doc
     .fontSize(30)
     .fillColor("#805630")
@@ -40,7 +39,6 @@ export const generateInvoicePdf = ({ order, res }) => {
   doc.moveTo(50, 140).lineTo(550, 140).strokeColor("#dddddd").stroke();
 
   // DETAILS GRID
-
   const startY = 160;
 
   doc
@@ -103,7 +101,6 @@ export const generateInvoicePdf = ({ order, res }) => {
   doc.moveTo(50, 295).lineTo(550, 295).strokeColor("#dddddd").stroke();
 
   // PRODUCT TABLE
-
   let tableY = 320;
   doc.rect(50, tableY - 8, 500, 25).fillAndStroke("#f5f5f5", "#dddddd");
 
@@ -175,13 +172,11 @@ export const generateInvoicePdf = ({ order, res }) => {
       .text(String(item.quantity), 320, currentY);
 
     if (item.salePrice && item.salePrice < originalPrice) {
- 
       doc
         .fontSize(9)
         .fillColor("#999999")
         .text(formatCurrency(originalPrice), 390, currentY - 5);
 
-    
       doc
         .moveTo(390, currentY - 1)
         .lineTo(430, currentY - 1)
@@ -189,13 +184,11 @@ export const generateInvoicePdf = ({ order, res }) => {
         .lineWidth(0.5)
         .stroke();
 
-      
       doc
         .fontSize(11)
         .fillColor("#000000")
         .text(formatCurrency(unitPrice), 390, currentY + 8);
     } else {
-
       doc
         .fontSize(11)
         .fillColor("#000000")
@@ -209,65 +202,94 @@ export const generateInvoicePdf = ({ order, res }) => {
       .moveTo(50, currentY + 35)
       .lineTo(550, currentY + 35)
       .strokeColor("#eeeeee")
-      .lineWidth(1) 
+      .lineWidth(1)
       .stroke();
     currentY += 55;
   });
 
   // SUMMARY BLOCK
-
   const subtotal = order.subtotal || 0;
-  const discount = order.discount || 0;
+  const productDiscount = order.discount || 0;
+  const couponDiscount = order.coupon?.discountAmount || 0;
+  const couponCode = order.coupon?.code || "";
   const shipping = order.deliveryCharge || 0;
   const tax = order.tax || 0;
-
-  // Grand total
   const grandTotal = order.totalAmount || 0;
 
   const totalDeductions = cancellationRefund + returnRefund;
   const netPaid = Math.max(0, grandTotal - totalDeductions);
 
-  if (currentY > 580) {
+  if (currentY > 520) {
     doc.addPage();
     currentY = 60;
   }
 
-  let summaryY = currentY + 10;
+  let summaryY = currentY + 15;
 
+  // Subtotal
   doc
     .fontSize(11)
     .font("Helvetica")
     .fillColor("#000000")
-    .text("Subtotal", 350, summaryY + 15);
-  doc.text(formatCurrency(subtotal), 470, summaryY + 15);
+    .text("Subtotal", 350, summaryY);
+  doc.text(formatCurrency(subtotal), 470, summaryY);
+  summaryY += 18;
 
-  doc.text("Discount", 350, summaryY + 35);
-  doc.text(`- ${formatCurrency(discount)}`, 470, summaryY + 35);
+  // Product Discount
+  doc.text("Product Discount", 350, summaryY);
+  doc.text(`- ${formatCurrency(productDiscount)}`, 470, summaryY);
+  summaryY += 18;
 
-  doc.text("Delivery Charge", 350, summaryY + 55);
-  doc.text(formatCurrency(shipping), 470, summaryY + 55);
+  // Coupon Discount
+  if (couponDiscount > 0) {
+    // 1. Discount amount line
+    doc.fillColor("#000000").text("Coupon Discount", 350, summaryY);
+    doc.text(`- ${formatCurrency(couponDiscount)}`, 470, summaryY);
+    summaryY += 16;
 
-  doc.text("Estimated Tax", 350, summaryY + 75);
-  doc.text(formatCurrency(tax), 470, summaryY + 75);
+    // 2. Coupon code sub-line (placed underneath)
+    if (couponCode) {
+      doc
+        .fontSize(9)
+        .fillColor("#666666")
+        .text(`Code: ${couponCode}`, 350, summaryY);
+      summaryY += 16;
+    }
 
+    // Reset styling back to normal standard text
+    doc.fontSize(11).fillColor("#000000");
+  }
+
+  // Delivery Charge
+  doc.text("Delivery Charge", 350, summaryY);
+  doc.text(formatCurrency(shipping), 470, summaryY);
+  summaryY += 18;
+
+  // Estimated Tax
+  doc.text("Estimated Tax", 350, summaryY);
+  doc.text(formatCurrency(tax), 470, summaryY);
+  summaryY += 22;
+
+  // Divider Line
   doc
-    .moveTo(350, summaryY + 95)
-    .lineTo(550, summaryY + 95)
+    .moveTo(350, summaryY)
+    .lineTo(550, summaryY)
     .strokeColor("#666666")
+    .lineWidth(1)
     .stroke();
+  summaryY += 12;
 
   // ORIGINAL GRAND TOTAL
   doc
     .font("Helvetica-Bold")
     .fontSize(12)
     .fillColor("#000000")
-    .text("Grand Total", 350, summaryY + 105);
-  doc.text(formatCurrency(grandTotal), 470, summaryY + 105);
+    .text("Grand Total", 350, summaryY);
+  doc.text(formatCurrency(grandTotal), 470, summaryY);
 
   // REFUND SECTION
-
   if (totalDeductions > 0) {
-    summaryY += 120;
+    summaryY += 30;
 
     doc
       .moveTo(320, summaryY)
@@ -275,53 +297,46 @@ export const generateInvoicePdf = ({ order, res }) => {
       .strokeColor("#000000")
       .lineWidth(1)
       .stroke();
+    summaryY += 15;
 
     doc
       .font("Helvetica-Bold")
       .fontSize(10)
       .fillColor("#666666")
-      .text("REFUNDS", 350, summaryY + 10);
+      .text("REFUNDS", 350, summaryY);
+    summaryY += 20;
+
     doc.font("Helvetica").fontSize(11);
 
-    let rowOffset = 30;
-
     if (cancellationRefund > 0) {
-      doc
-        .fillColor("#dc2626")
-        .text("Cancelled Items Refund", 350, summaryY + rowOffset);
-      doc.text(
-        ` - ${formatCurrency(cancellationRefund)}`,
-        470,
-        summaryY + rowOffset,
-      );
-      rowOffset += 20;
+      doc.fillColor("#dc2626").text("Cancelled Items Refund", 350, summaryY);
+      doc.text(` - ${formatCurrency(cancellationRefund)}`, 470, summaryY);
+      summaryY += 20;
     }
 
     if (returnRefund > 0) {
-      doc
-        .fillColor("#dc2626")
-        .text("Returned Items Refund", 350, summaryY + rowOffset);
-      doc.text(`- ${formatCurrency(returnRefund)}`, 470, summaryY + rowOffset);
-      rowOffset += 20;
+      doc.fillColor("#dc2626").text("Returned Items Refund", 350, summaryY);
+      doc.text(`- ${formatCurrency(returnRefund)}`, 470, summaryY);
+      summaryY += 20;
     }
 
     doc
-      .moveTo(350, summaryY + rowOffset + 5)
-      .lineTo(550, summaryY + rowOffset + 5)
+      .moveTo(350, summaryY + 5)
+      .lineTo(550, summaryY + 5)
       .strokeColor("#dddddd")
       .stroke();
+    summaryY += 15;
 
     // NET PAID BALANCE
     doc
       .font("Helvetica-Bold")
       .fontSize(13)
       .fillColor("#16a34a")
-      .text("Net Paid Amount", 350, summaryY + rowOffset + 15);
-    doc.text(formatCurrency(netPaid), 470, summaryY + rowOffset + 15);
+      .text("Net Paid Amount", 350, summaryY);
+    doc.text(formatCurrency(netPaid), 470, summaryY);
   }
 
   // FOOTER
-
   const footerY = 760;
   doc
     .moveTo(50, footerY)
@@ -345,4 +360,4 @@ export const generateInvoicePdf = ({ order, res }) => {
     );
 
   doc.end();
-};
+};;
