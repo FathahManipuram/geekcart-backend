@@ -2,6 +2,7 @@ import { RETURN_REQUEST_STATUSES } from "../../../../common/constants/adminRetur
 import { RETURN_STATUS_TRANSITIONS } from "../../../../common/constants/adminReturn/returnStatusTransition.js";
 import { HTTP_STATUS } from "../../../../common/constants/statusCode.js";
 import { AppError } from "../../../../common/utils/AppError.js";
+import { calculateItemRefund } from "../../../user-side/order/helpers/calculateItemRefund.js";
 import { Order } from "../../../user-side/order/models/order.model.js";
 import { User } from "../../../user-side/user-profile/models/user.model.js";
 import { creditWallet } from "../../../user-side/wallet/services/wallet.service.js";
@@ -77,10 +78,6 @@ export const updateReturnRequestStatusService = async ({
   adminNote,
 }) => {
 
-	console.log("returnId:", returnId);
-  console.log("status:", status);
-  console.log("adminNote:", adminNote);
-
 	if (
     status === RETURN_REQUEST_STATUSES.RETURN_REJECTED &&
     !adminNote?.trim()
@@ -131,10 +128,15 @@ returnRequest.adminNote= adminNote
   });
 
 
-  if (status === RETURN_REQUEST_STATUSES.RETURN_APPROVED) {
-    returnRequest.refundAmount =
-      item.quantity * returnRequest.itemSnapshot.priceAtPurchase;
-  }
+ if (status === RETURN_REQUEST_STATUSES.RETURN_APPROVED) {
+   const refundAmount = calculateItemRefund({
+     order,
+     item,
+     operation: "RETURN",
+   });
+
+   returnRequest.refundAmount = refundAmount;
+ }
 
 if (status === RETURN_REQUEST_STATUSES.RETURN_COMPLETED) {
   if (returnRequest.refundStatus === "COMPLETED") {
@@ -143,22 +145,20 @@ if (status === RETURN_REQUEST_STATUSES.RETURN_COMPLETED) {
 
   await creditWallet({
     userId: returnRequest.user,
-
     amount: returnRequest.refundAmount,
-
     reason: "RETURN_REFUND",
-
     description: `Refund for returned item ${returnRequest.itemSnapshot.name}`,
-
     referenceId: returnRequest._id,
   });
 
   returnRequest.refundStatus = "COMPLETED";
-
   returnRequest.resolvedAt = new Date();
 
+  item.refundAmount = returnRequest.refundAmount;
+  item.refundStatus = "COMPLETED";
+
   await Variant.updateOne(
-    { _id: returnRequest.itemSnapshot.variantId },
+    { _id: item.variantId },
     {
       $inc: {
         stock: item.quantity,
