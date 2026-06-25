@@ -50,12 +50,12 @@ const couponSchema = new mongoose.Schema(
       min: 0,
     },
 
-    maxUsesPerUser: {
+    perUserLimit: {
       type: Number,
       default: 1,
     },
 
-   startDate: {
+    startDate: {
       type: Date,
       required: true,
     },
@@ -77,10 +77,44 @@ const couponSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+
+    toJSON: {
+      virtuals: true,
+    },
+
+    toObject: {
+      virtuals: true,
+    },
   },
 );
 
+couponSchema.virtual("status").get(function(){
+   const now = new Date();
 
-couponSchema.index({code: 1, isActive: 1, validFrom: 1, validUntil: 1, })
+   if (this.isDeleted) {
+     return "DELETED";
+   }
+
+   if (!this.isActive) {
+     return "INACTIVE";
+   }
+
+   if (this.startDate > now) {
+     return "SCHEDULED";
+   }
+
+   if (this.expiryDate < now) {
+     return "EXPIRED";
+   }
+
+   return "ACTIVE";
+})
+
+
+couponSchema.index({
+  isActive: 1,
+  startDate: 1,
+  expiryDate: 1,
+});
 
 export const Coupon= mongoose.model("Coupon", couponSchema)

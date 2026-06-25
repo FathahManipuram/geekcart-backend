@@ -1,6 +1,6 @@
 import Joi from "joi";
 
-export const createCouponScheama = Joi.object({
+export const createCouponSchema = Joi.object({
   code: Joi.string()
     .trim()
     .uppercase()
@@ -16,7 +16,7 @@ export const createCouponScheama = Joi.object({
       "any.required": "Coupon code is a required field.",
     }),
 
-  description: Joi.string().trim().min(10).required().messages({
+  description: Joi.string().trim().max(80).min(10).required().messages({
     "string.min":
       "Provide a descriptive summary (min 10 characters) for checkout visibility.",
     "any.required": "Description is required.",
@@ -53,7 +53,7 @@ export const createCouponScheama = Joi.object({
         "number.greater":
           "Maximum discount cap must be greater than 0 for percentage offers.",
       }),
-      otherwise: Joi.number().default(0),
+      otherwise: Joi.allow(null),
     }),
 
   usageLimit: Joi.number().integer().positive().required().messages({
@@ -64,11 +64,21 @@ export const createCouponScheama = Joi.object({
   perUserLimit: Joi.number()
     .integer()
     .positive()
-    .max(Joi.ref("usageLimit"))
     .required()
+    .custom((value, helpers) => {
+      const { usageLimit } = helpers.state.ancestors[0];
+
+      if (usageLimit && value > usageLimit) {
+        return helpers.message(
+          "Per user limit cannot exceed the global usage limit.",
+        );
+      }
+
+      return value;
+    })
     .messages({
-      "number.max": "Per user limit cannot exceed the global usage limit.",
       "number.integer": "Per user limit must be a whole number.",
+      "number.positive": "Per user limit must be at least 1.",
     })
     .default(1),
 
@@ -76,10 +86,16 @@ export const createCouponScheama = Joi.object({
     .iso()
     .required()
     .custom((value, helpers) => {
-      const bufferTime = new Date(Date.now() - 5 * 60 * 1000);
-      if (value < bufferTime) {
+      const startDate = new Date(value);
+      startDate.setHours(0, 0, 0, 0);
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (startDate < today) {
         return helpers.message("Start date cannot be set in the past.");
       }
+
       return value;
     })
     .messages({
@@ -91,14 +107,21 @@ export const createCouponScheama = Joi.object({
     .required()
     .custom((value, helpers) => {
       const { startDate } = helpers.state.ancestors[0];
+
       if (!startDate) return value;
 
-      const minExpiry = new Date(startDate).getTime() + 60 * 1000;
-      if (new Date(value).getTime() < minExpiry) {
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+
+      const expiry = new Date(value);
+      expiry.setHours(0, 0, 0, 0);
+
+      if (expiry < start) {
         return helpers.message(
-          "Expiry date must be scheduled at least 1 minute after the start date.",
+          "Expiry date must be on or after the start date.",
         );
       }
+
       return value;
     })
     .messages({
@@ -110,7 +133,7 @@ export const createCouponScheama = Joi.object({
 
 
 
-export const updateCouponoSchema = createCouponScheama
+export const updateCouponSchema = createCouponSchema
   .fork(
     [
       "code",
@@ -136,12 +159,18 @@ export const updateCouponoSchema = createCouponScheama
 
         if (!startDate) return value;
 
-        const minExpiry = new Date(startDate).getTime() + 60 * 1000;
-        if (new Date(value).getTime() < minExpiry) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+
+        const expiry = new Date(value);
+        expiry.setHours(0, 0, 0, 0);
+
+        if (expiry < start) {
           return helpers.message(
-            "Updated expiry date must be at least 1 minute after the start date.",
+            "Expiry date must be on or after the start date.",
           );
         }
+
         return value;
       }),
   });
