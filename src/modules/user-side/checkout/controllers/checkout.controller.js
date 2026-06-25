@@ -1,6 +1,11 @@
 import { HTTP_STATUS } from "../../../../common/constants/statusCode.js";
 import { successResponse } from "../../../../common/helpers/response.js";
-import { validateCheckoutService, validatePaymentService, validateShippingService } from "../services/checkout.service.js";
+import {
+  validateCheckoutService,
+  validateFinalCheckoutService,
+  validatePaymentService,
+  validateShippingService,
+} from "../services/checkout.service.js";
 
 // Validate before checkout
 export const validateCheckoutController = async (req, res, next) => {
@@ -28,12 +33,31 @@ export const validateShippingController = async (req, res, next) => {
   }
 };
 
-export const validatePaymentController= async(req, res, next)=>{
-  try{
-
-    const result= await validatePaymentService(req.body)
-    return successResponse(res, HTTP_STATUS.OK, result.mesaage, result.data)
-  }catch(err){
-    next(err)
+export const validatePaymentController = async (req, res, next) => {
+  try {
+    console.log("validate payment details: ", {
+      userId: req.user.id,
+      ...req.body,
+    });
+    const result = await validatePaymentService({
+      userId: req.user.id,
+      ...req.body,
+    });
+    return successResponse(res, HTTP_STATUS.OK, result.mesaage, result.data);
+  } catch (err) {
+    next(err);
   }
-}
+};
+
+export const validateFinalCheckoutController = async (req, res, next) => {
+  try {
+    const result = await validateFinalCheckoutService({
+      userId: req.user.id,
+      ...req.body,
+    });
+
+    return successResponse(res, HTTP_STATUS.OK, result.message, result.data);
+  } catch (err) {
+    next(err);
+  }
+};

@@ -1,4 +1,5 @@
 import Joi from "joi";
+import { objectId } from "../../../../common/validation/base.validation.js";
 
 export const validateShippingSchema = Joi.object({
   addressId: Joi.string().required(),
@@ -7,5 +8,7 @@ export const validateShippingSchema = Joi.object({
 });
 
 export const validatePaymentSchema = Joi.object({
-  paymentMethod: Joi.string().valid("COD", "RAZORPAY").required(),
+  deliveryMethod: Joi.string().valid("STANDARD", "EXPRESS").required(),
+  paymentMethod: Joi.string().valid("COD", "RAZORPAY", "WALLET").required(),
+  couponId: objectId.optional().allow(null),
 });

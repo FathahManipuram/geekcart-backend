@@ -1,10 +1,18 @@
 import { CHECKOUT_ISSUES } from "../../../../common/constants/checkout/checkoutIssues.js";
 import { PAYMENT_ISSUES } from "../../../../common/constants/checkout/paymentIssues.js";
 import { SHIPPING_ISSUES } from "../../../../common/constants/checkout/shippingIssues.js";
+import { HTTP_STATUS } from "../../../../common/constants/statusCode.js";
+import { AppError } from "../../../../common/utils/AppError.js";
+import { Coupon } from "../../../admin-side/coupon-management/models/coupon.model.js";
 import { Product } from "../../../admin-side/product-management/models/product.model.js";
 import { Variant } from "../../../admin-side/product-management/models/variant.model.js";
 import { Address } from "../../address/models/address.model.js";
 import { Cart } from "../../cart/models/cart.model.js";
+import { validateCoupon } from "../../coupon/helper/validateCoupon.helper.js";
+import { getVariantWithOffer } from "../../offer/helpers/getVariantWithOffer.helper.js";
+import { calculateCheckoutSummary } from "../../order/helpers/calculateCheckoutSummary.js";
+import { validateCartItems } from "../../order/helpers/validateCartItems.helper.js";
+import { Wallet } from "../../wallet/models/wallet.model.js";
 
 // Validate Before Checkout page
 export const validateCheckoutService = async (userId) => {
@@ -26,11 +34,32 @@ export const validateCheckoutService = async (userId) => {
     };
   }
 
+    const productIds = cart.items.map((item) => item.productId);
+    const variantIds = cart.items.map((item) => item.variantId);
+
+   const [products, variants] = await Promise.all([
+     Product.find({
+       _id: { $in: productIds },
+       isDeleted: false,
+     }),
+
+     Variant.find({
+       _id: { $in: variantIds },
+       isDeleted: false,
+     }),
+   ]);
+
+
+     const productMap = new Map(
+       products.map((product) => [product._id.toString(), product]),
+     )
+
+      const variantMap = new Map(
+        variants.map((variant) => [variant._id.toString(), variant]),
+      );
+
   for (const item of cart.items) {
-    const product = await Product.findOne({
-      _id: item.productId,
-      isDeleted: false,
-    });
+    const product = productMap.get(item.productId.toString());
 
     if (!product) {
       issues.push({
@@ -54,10 +83,7 @@ export const validateCheckoutService = async (userId) => {
       continue;
     }
 
-    const variant = await Variant.findOne({
-      _id: item.variantId,
-      isDeleted: false,
-    });
+    const variant = variantMap.get(item.variantId.toString());
 
     if (!variant) {
       issues.push({
@@ -69,6 +95,18 @@ export const validateCheckoutService = async (userId) => {
         size: item.size,
         color: item.color,
         image: item.image,
+      });
+
+      continue;
+    }
+
+
+    if (variant.product.toString() !== item.productId.toString()) {
+      issues.push({
+        type: CHECKOUT_ISSUES.VARIANT_NOT_FOUND.code,
+        message: CHECKOUT_ISSUES.VARIANT_NOT_FOUND.message,
+        productId: item.productId,
+        variantId: item.variantId,
       });
 
       continue;
@@ -122,9 +160,11 @@ export const validateCheckoutService = async (userId) => {
       });
     }
 
-    const currentPrice = variant.salePrice ?? variant.price;
 
-    const cartPrice = item.salePrice ?? item.price;
+      const variantWithOffer = await getVariantWithOffer(variant);
+
+       const currentPrice = variantWithOffer.salePrice;
+       const cartPrice = item.salePrice ?? item.price;
 
     if (currentPrice !== cartPrice) {
       issues.push({
@@ -158,9 +198,6 @@ export const validateCheckoutService = async (userId) => {
   };
 };
 
-
-
-
 //Validate shipping
 export const validateShippingService = async ({
   userId,
@@ -173,7 +210,7 @@ export const validateShippingService = async ({
     _id: addressId,
     userId,
   });
-console.log("deliveryMethod: ", deliveryMethod)
+  console.log("deliveryMethod: ", deliveryMethod);
   if (!address) {
     issues.push({
       type: SHIPPING_ISSUES.ADDRESS_NOT_FOUND.code,
@@ -195,29 +232,174 @@ console.log("deliveryMethod: ", deliveryMethod)
 };
 
 
+export const validatePaymentService = async ({
+  userId,
+  paymentMethod,
+  deliveryMethod,
+  couponId,
+}) => {
 
+  const issues = [];
 
-// Validate payment
-export const validatePaymentService= async(paymentMethod)=>{
- const issues=[]
+  if (!paymentMethod) {
+    issues.push({
+      code: PAYMENT_ISSUES.INVALID_PAYMENT_METHOD.code,
+      message: PAYMENT_ISSUES.INVALID_PAYMENT_METHOD.message,
+    })
+    
+  }
 
- if(!paymentMethod){
-  issues.push({
-    type: PAYMENT_ISSUES.INVALID_PAYMENT_METHOD.code,
-    message: PAYMENT_ISSUES.INVALID_PAYMENT_METHOD.message
-  })
- }
+const [cart, wallet] = await Promise.all([
+  Cart.findOne({ userId }),
+  paymentMethod === "WALLET"
+    ? Wallet.findOne({ user: userId })
+    : Promise.resolve(null),
+]);
 
- return {
-   mesaage:
-     issues.length > 0
-       ? "Payment validation failed"
-       : "Payment validation successful",
+   if (!cart || !cart.items.length) {
+     throw new AppError("Cart is empty", HTTP_STATUS.BAD_REQUEST);
+   }
 
-       data: {
-        valid : issues.length === 0,
-        issues,
-       }
- };
+let coupon = null;
+if (couponId) {
+  coupon = await Coupon.findById(couponId);
 
+  await validateCoupon({
+    userId,
+    coupon,
+    subtotal: cart.summary.subtotal,
+  });
 }
+
+
+  const { finalTotal } = await calculateCheckoutSummary({
+    userId,
+    cart,
+    deliveryMethod,
+    couponId,
+  });
+
+  //Wallet validation
+  if (paymentMethod === "WALLET") {
+
+    if (!wallet) {
+      issues.push({
+        code: PAYMENT_ISSUES.WALLET_NOT_FOUND.code,
+        message: PAYMENT_ISSUES.WALLET_NOT_FOUND.message,
+      });
+    } else {
+      if (!wallet.isActive) {
+        issues.push({
+          code: PAYMENT_ISSUES.WALLET_DISABLED.code,
+          message: PAYMENT_ISSUES.WALLET_DISABLED.message,
+        });
+      }
+
+      if (wallet.balance < finalTotal) {
+        issues.push({
+          code: PAYMENT_ISSUES.INSUFFICIENT_WALLET_BALANCE.code,
+          message: PAYMENT_ISSUES.INSUFFICIENT_WALLET_BALANCE.message,
+          availableBalance: wallet.balance,
+          requiredAmount: finalTotal,
+        });
+      }
+    }
+  }
+
+  // COD VALIDATION
+  if (paymentMethod === "COD" && finalTotal > 2000) {
+    issues.push({
+      code: PAYMENT_ISSUES.COD_LIMIT_EXCEEDED.code,
+      message: PAYMENT_ISSUES.COD_LIMIT_EXCEEDED.message,
+    });
+  }
+
+  return {
+    message:
+      issues.length > 0
+        ? "Payment validation failed"
+        : "Payment validation successful",
+    data: {
+      valid: issues.length === 0,
+
+      issues,
+    },
+  };
+};
+
+
+// final validation
+export const validateFinalCheckoutService = async ({
+  userId,
+  addressId,
+  deliveryMethod,
+  paymentMethod,
+  couponId,
+}) => {
+  const cart = await Cart.findOne({ userId });
+
+  if (!cart || !cart.items.length) {
+    throw new AppError("Cart is empty", HTTP_STATUS.BAD_REQUEST);
+  }
+
+
+  const cartValidation = await validateCartItems(cart.items);
+
+//cart validation
+  if (!cartValidation.valid) {
+    throw new AppError(
+      "Checkout validation failed",
+      HTTP_STATUS.BAD_REQUEST,
+      cartValidation.issues,
+    )
+  }
+
+  // Shipping Validation
+  const shippingValidation = await validateShippingService({
+    userId,
+    addressId,
+    deliveryMethod
+  });
+
+  if (!shippingValidation.data.valid) {
+    throw new AppError(
+      "Shipping validation failed",
+      HTTP_STATUS.BAD_REQUEST,
+      shippingValidation.data.issues,
+    );
+  }
+
+  // Payment Validation
+  const paymentValidation = await validatePaymentService({
+    userId,
+    paymentMethod,
+    deliveryMethod,
+    couponId,
+  });
+
+  if (!paymentValidation.data.valid) {
+    throw new AppError(
+      "Payment validation failed",
+      HTTP_STATUS.BAD_REQUEST,
+      paymentValidation.data.issues,
+    );
+  }
+
+  // // Final recalculation
+  // const summary = await calculateCheckoutSummary({
+  //   userId,
+  //   cart,
+  //   deliveryMethod,
+  //   couponId,
+  // });
+
+  return {
+    message: "Checkout validated successfully",
+
+    data: {
+      valid: true,
+
+     // summary,
+    },
+  };
+};
