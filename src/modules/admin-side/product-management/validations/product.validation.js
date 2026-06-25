@@ -1,5 +1,5 @@
 import Joi from "joi";
-import { categoryName, color, costPrice, description, fabric, price, productName, salePrice, size, sku, sleeve, stock } from "../../../../common/validation/base.validation.js";
+import { categoryName, color, costPrice, description, fabric, price, productName, size, sku, sleeve, stock } from "../../../../common/validation/base.validation.js";
 
 
 const variantGroupValidationSchema = Joi.object({
@@ -16,7 +16,6 @@ const variantSchema = Joi.object({
   stock: stock.required(),
   costPrice: costPrice.required(),
   price: price.required(),
-  salePrice: salePrice.optional().allow(null, ""),
   images: Joi.array().items(Joi.string()).optional(),
   isDefault: Joi.boolean().optional(),
   isActive: Joi.boolean().optional(),
@@ -64,7 +63,7 @@ export const createProductSchema = Joi.object({
   abortEarly: false,
 });
 
-export const updateProductSchema=Joi.object({
+export const updateProductSchema = Joi.object({
   name: productName.optional(),
   description: description.optional(),
   coverImage: Joi.any().optional(),
@@ -87,8 +86,7 @@ export const updateProductSchema=Joi.object({
   isLimited: Joi.boolean().optional(),
   isActive: Joi.boolean().optional(),
 
-  variants: Joi.array()
-    .items(variantSchema)
-    .min(1).optional(),
-    
-})
+  variants: Joi.array().items(variantSchema).min(1).optional(),
+
+  variantGroups: Joi.array().items(variantGroupValidationSchema).optional(),
+});
