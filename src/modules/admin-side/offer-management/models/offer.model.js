@@ -5,6 +5,7 @@ const offerSchema = new mongoose.Schema(
     name: {
       type: String,
       required: [true, "Offer name is required"],
+      unique: true,
       trim: true,
     },
     description: {
@@ -13,33 +14,15 @@ const offerSchema = new mongoose.Schema(
     },
     offerType: {
       type: String,
-      enum: ["PRODUCT", "CATEGORY", "SUBCATEGORY"],
+      enum: ["Product", "Category", "Subcategory"],
       required: true,
     },
 
-    applicableProducts: 
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Product",
-        default: null,
-      },
-    
-
-    applicableCategories: 
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Category",
-        default: null,
-      },
-    
-
-    applicableSubcategories: 
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Subcategory",
-        default: null,
-      },
-    
+    targetId: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: [true, "Target reference ID is required"],
+      refPath: "offerType",
+    },
 
     discountType: {
       type: String,
@@ -49,40 +32,33 @@ const offerSchema = new mongoose.Schema(
 
     discountValue: {
       type: Number,
-      required: true,
-      min: [0, "Discount value cannot be negative"],
+      required: [true, "Discount value is required"],
+      min: [1, "Discount value must be greater than 0"],
+      validate: {
+        validator: function (value) {
+          if (this.discountType === "PERCENTAGE" && value > 100) {
+            return false;
+          }
+          return true;
+        },
+        message: "Percentage discount value cannot exceed 100%",
+      },
     },
 
     startDate: {
       type: Date,
       required: true,
     },
+    
     expiryDate: {
       type: Date,
       required: true,
-    },
-
-    usageCount: {
-      type: Number,
-      default: 0,
-    },
-
-    minOrderAmount: {
-      type: Number,
-      default: 0,
-      min: [0, "Minimum order amount cannot be negative"],
     },
 
     maxDiscountAmount: {
       type: Number,
       default: null,
       min: [0, "Maximum discount amount cannot be negative"],
-    },
-
-    status: {
-      type: String,
-      enum: ["ACTIVE", "INACTIVE", "EXPIRED"],
-      default: "ACTIVE",
     },
 
     isActive: {
@@ -96,10 +72,32 @@ const offerSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    toJSON: {
+      virtuals: true,
+    },
+    toObject: {
+      virtuals: true,
+    },
   },
 );
 
-offerSchema.index({ offerType: 1, isActive: 1, isDeleted: 1 });
+offerSchema.virtual("status").get(function () {
+  const now = new Date();
+
+  if (this.isDeleted) return "DELETED";
+
+  if (!this.isActive) return "INACTIVE";
+
+  if (this.startDate > now) return "SCHEDULED";
+
+  if (this.expiryDate < now) return "EXPIRED";
+
+  return "ACTIVE";
+});
+
+
+
+offerSchema.index({ targetId: 1, offerType: 1, isActive: 1, isDeleted: 1 });
 offerSchema.index({ startDate: 1, expiryDate: 1 });
 
 export const Offer= mongoose.model("Offer", offerSchema)

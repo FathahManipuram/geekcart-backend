@@ -1,9 +1,8 @@
 import Joi from "joi";
 
-
 const strongTextRegex = /^[a-zA-Z0-9]+[a-zA-Z0-9\s\-_.,()!%]*$/;
 
-export const createOfferValidation = Joi.object({
+export const createOfferSchema = Joi.object({
   name: Joi.string()
     .trim()
     .min(3)
@@ -19,37 +18,16 @@ export const createOfferValidation = Joi.object({
   description: Joi.string().trim().min(10).allow("", null).required(),
 
   offerType: Joi.string()
-    .valid("PRODUCT", "CATEGORY", "SUBCATEGORY")
+    .valid("Product", "Category", "Subcategory")
     .required(),
 
-
-  productId: Joi.string()
-    .trim()
-    .when("offerType", {
-      is: "PRODUCT",
-      then: Joi.required(),
-      otherwise: Joi.valid("", null).striped(), 
-    }),
-
-  categoryId: Joi.string()
-    .trim()
-    .when("offerType", {
-      is: "CATEGORY",
-      then: Joi.required(),
-      otherwise: Joi.valid("", null).striped(),
-    }),
-
-  subcategoryId: Joi.string()
-    .trim()
-    .when("offerType", {
-      is: "SUBCATEGORY",
-      then: Joi.required(),
-      otherwise: Joi.valid("", null).striped(),
-    }),
+  targetId: Joi.string().hex().length(24).required().messages({
+    "string.hex": "Invalid target id",
+    "string.length": "Invalid target id",
+  }),
 
   discountType: Joi.string().valid("PERCENTAGE", "FIXED").required(),
 
-  
   discountValue: Joi.number()
     .positive()
     .required()
@@ -58,25 +36,103 @@ export const createOfferValidation = Joi.object({
       then: Joi.number()
         .max(90)
         .message("Percentage discount cannot exceed 90%"),
-      otherwise: Joi.number(), 
+      otherwise: Joi.number(),
     }),
 
-  minOrderAmount: Joi.number().min(0).allow(null, "").default(0),
-
-  maxDiscountAmount: Joi.number().min(0).allow(null, "").default(null),
-
-
-  startDate: Joi.date()
-    .required()
-
-    .min(new Date(Date.now() - 5 * 60 * 1000))
-    .messages({
-      "date.min": "Start date cannot be in the past.",
+  maxDiscountAmount: Joi.when("discountType", {
+    is: "PERCENTAGE",
+    then: Joi.number().greater(0).required().messages({
+      "any.required": "Maximum discount is required for percentage offers",
     }),
 
-  expiryDate: Joi.date().greater(Joi.ref("startDate")).required().messages({
-    "date.greater": "Expiry date must be scheduled after the start date.",
+    otherwise: Joi.any().strip(),
   }),
+
+ startDate: Joi.date()
+     .iso()
+     .required()
+     .custom((value, helpers) => {
+       const startDate = new Date(value);
+       startDate.setHours(0, 0, 0, 0);
+ 
+       const today = new Date();
+       today.setHours(0, 0, 0, 0);
+ 
+       if (startDate < today) {
+         return helpers.message("Start date cannot be set in the past.");
+       }
+ 
+       return value;
+     })
+     .messages({
+       "any.required": "Start date is required.",
+     }),
+ 
+   expiryDate: Joi.date()
+     .iso()
+     .required()
+     .custom((value, helpers) => {
+       const { startDate } = helpers.state.ancestors[0];
+ 
+       if (!startDate) return value;
+ 
+       const start = new Date(startDate);
+       start.setHours(0, 0, 0, 0);
+ 
+       const expiry = new Date(value);
+       expiry.setHours(0, 0, 0, 0);
+ 
+       if (expiry < start) {
+         return helpers.message(
+           "Expiry date must be on or after the start date.",
+         );
+       }
+ 
+       return value;
+     })
+     .messages({
+       "any.required": "Expiry date is required.",
+     }),
 
   isActive: Joi.boolean().default(true),
 });
+
+export const updateOfferSchema = createOfferSchema.fork(
+  [
+    "name",
+    "description",
+    "offerType",
+    "targetId",
+    "discountType",
+    "discountValue",
+    "maxDiscountAmount",
+    "startDate",
+    "expiryDate",
+    "isActive",
+  ],
+   (schema) => schema.optional(),
+    )
+    .keys({
+      expiryDate: Joi.date()
+        .iso()
+        .optional()
+        .custom((value, helpers) => {
+          const { startDate } = helpers.state.ancestors[0];
+  
+          if (!startDate) return value;
+  
+          const start = new Date(startDate);
+          start.setHours(0, 0, 0, 0);
+  
+          const expiry = new Date(value);
+          expiry.setHours(0, 0, 0, 0);
+  
+          if (expiry < start) {
+            return helpers.message(
+              "Expiry date must be on or after the start date.",
+            );
+          }
+  
+          return value;
+        }),
+    });

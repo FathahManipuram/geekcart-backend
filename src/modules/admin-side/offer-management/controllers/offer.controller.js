@@ -3,8 +3,9 @@ import { successResponse } from "../../../../common/helpers/response.js"
 import { createOfferService, deleteOfferService, getOfferDetailsService, getOffersService, toggleOfferStatusService, updateOfferService } from "../services/offer.service.js"
 
 
-//Create product
+//Create offer
 export const createOfferController= async(req, res, next)=>{
+	console.log("reqedstBody: ", req.body)
 	try{
 		const result= await createOfferService(req.body)
 		return successResponse(res, HTTP_STATUS.CREATED, result.message, result.data)
