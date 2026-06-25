@@ -25,6 +25,7 @@ import orderManagementRoutes from "../modules/admin-side/order-management/routes
 import returnManagementRoutes from "../modules/admin-side/return-management/routes/adminReturn.routes.js"
 import couponRoutes from "../modules/admin-side/coupon-management/routes/coupon.routes.js"
 import offerRoutes from "../modules/admin-side/offer-management/routes/offer.routes.js"
+import salesRoutes from "../modules/admin-side/sales-report/routes/sales.routes.js"
 
 const router= Router()
 router.use("/auth", authRoutes)
@@ -53,6 +54,8 @@ router.use("/admin/orders", orderManagementRoutes)
 router.use("/admin/returns", returnManagementRoutes)
 router.use("/admin/coupons", couponRoutes)
 router.use("/admin/offers", offerRoutes)
+router.use("/admin/sales-report", salesRoutes)
+
 
 
 export default router

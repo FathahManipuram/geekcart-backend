@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 
 import { Product } from "../../../admin-side/product-management/models/product.model.js";
+import { getActiveOffers } from "../../offer/helpers/getActiveOffers.helper.js";
+import { applyOffersToProducts } from "../../offer/helpers/applyOffersToProducts.helper.js";
 
 export const getCollectionsService = async (query) => {
   console.log("collection Service: ", query)
@@ -292,12 +294,18 @@ export const getCollectionsService = async (query) => {
 
   const result = await Product.aggregate(pipeline);
 
+const offers= await getActiveOffers()
+const products = applyOffersToProducts({
+  products: result[0]?.products || [],
+  offers,
+});
 
-  const products = result[0]?.products || [];
+ // const products = result[0]?.products || [];
 
   const totalProducts = result[0]?.totalCount?.[0]?.count || 0;
 
   const totalPages = Math.ceil(totalProducts / perPage);
+
 
   return {
     message: "Collections fetched successfully",

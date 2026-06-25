@@ -61,7 +61,8 @@ export const applyCouponService = async ({ userId, couponCode }) => {
 
   const subtotal = cart.summary?.subtotal || 0;
 
-  validateCoupon({
+  await validateCoupon({
+    userId,
     coupon,
     subtotal,
   });
