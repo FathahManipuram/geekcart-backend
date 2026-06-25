@@ -1,0 +1,7 @@
+export const SUCCESSFUL_ITEM_STATUSES = [
+  "PLACED",
+  "PROCESSING",
+  "SHIPPED",
+  "OUT_FOR_DELIVERY",
+  "DELIVERED",
+];
