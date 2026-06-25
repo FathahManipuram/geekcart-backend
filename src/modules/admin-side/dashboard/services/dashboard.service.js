@@ -1,14 +1,15 @@
-import { Order } from "../../../user-side/order/models/order.model.js";
 import { User } from "../../../user-side/user-profile/models/user.model.js";
 import { Category } from "../../category-management/models/category.model.js";
 import { Subcategory } from "../../subcategory-management/models/subcategory.model.js";
-import { getSalesChart } from "../helper/salesChart.js";
+import { getSalesChart } from "../helper/getSalesChart.js";
+import { getDataSample } from "../helper/getSample.js";
 import { getTopProduct } from "../helper/topProduct.js";
 import { getTopSubcategories } from "../helper/topSubcategories.js";
-import ExcelJS from "exceljs";
+
 
 
 export const getDashboardService = async () => {
+
   const [totalUsers, activeUsers, totalCategories, totalSubcategories] =
     await Promise.all([
       User.countDocuments({
@@ -107,6 +108,8 @@ export const getDashboardService = async () => {
   const topProducts = await getTopProduct();
   const topSubcategories = await getTopSubcategories();
 
+  const sample= await getDataSample()
+
   return {
     message: "Dashboard fetched successfully",
     data: {
@@ -122,150 +125,7 @@ export const getDashboardService = async () => {
       salesChart,
       topProducts,
       topSubcategories,
+      sample,
     },
   };
-};
-
-
-export const exportSalesReportExcelService = async ({
-  reportType,
-  startDate,
-  endDate,
-}) => {
-  const query = {
-    orderStatus: "DELIVERED",
-  };
-
-  const now = new Date();
-
-  if (reportType === "daily") {
-    query.createdAt = {
-      $gte: new Date(now.setHours(0, 0, 0, 0)),
-    };
-  }
-
-  if (reportType === "weekly") {
-    const lastWeek = new Date();
-    lastWeek.setDate(lastWeek.getDate() - 7);
-
-    query.createdAt = {
-      $gte: lastWeek,
-    };
-  }
-
-  if (reportType === "yearly") {
-    query.createdAt = {
-      $gte: new Date(now.getFullYear(), 0, 1),
-    };
-  }
-
-  if (startDate && endDate) {
-    query.createdAt = {
-      $gte: new Date(startDate),
-      $lte: new Date(endDate),
-    };
-  }
-
-  const orders = await Order.find(query).sort({ createdAt: -1 }).lean();
-
-  const workbook = new ExcelJS.Workbook();
-
-  const worksheet = workbook.addWorksheet("Sales Report");
-
-  worksheet.columns = [
-    {
-      header: "Order Number",
-      key: "orderNumber",
-      width: 25,
-    },
-    {
-      header: "Date",
-      key: "date",
-      width: 18,
-    },
-    {
-      header: "Customer",
-      key: "customer",
-      width: 25,
-    },
-    {
-      header: "Sales Amount",
-      key: "amount",
-      width: 15,
-    },
-    {
-      header: "Offer Discount",
-      key: "discount",
-      width: 15,
-    },
-    {
-      header: "Coupon Discount",
-      key: "couponDiscount",
-      width: 18,
-    },
-    {
-      header: "Final Amount",
-      key: "finalAmount",
-      width: 15,
-    },
-    {
-      header: "Payment Method",
-      key: "paymentMethod",
-      width: 18,
-    },
-  ];
-
-  let totalSales = 0;
-  let totalDiscount = 0;
-  let totalCouponDiscount = 0;
-
-  orders.forEach((order) => {
-    const couponDiscount = order?.coupon?.discountAmount || 0;
-
-    worksheet.addRow({
-      orderNumber: order.orderNumber,
-
-      date: new Date(order.createdAt).toLocaleDateString(),
-
-      customer: order.shippingAddress?.fullName,
-
-      amount: order.subtotal,
-
-      discount: order.discount || 0,
-
-      couponDiscount,
-
-      finalAmount: order.totalAmount,
-
-      paymentMethod: order.paymentMethod,
-    });
-
-    totalSales += order.totalAmount;
-    totalDiscount += order.discount || 0;
-    totalCouponDiscount += couponDiscount;
-  });
-
-  worksheet.addRow([]);
-
-  worksheet.addRow({
-    orderNumber: "SUMMARY",
-    amount: totalSales,
-    discount: totalDiscount,
-    couponDiscount: totalCouponDiscount,
-  });
-
-  worksheet.getRow(1).font = {
-    bold: true,
-  };
-
-  const summaryRow = worksheet.lastRow;
-
-  summaryRow.font = {
-    bold: true,
-  };
-
-  return {
-    workbook,
-    fileName: `sales-report-${Date.now()}.xlsx`,
-  };
-};
+}
