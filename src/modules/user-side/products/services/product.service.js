@@ -2,6 +2,9 @@ import { HTTP_STATUS } from "../../../../common/constants/statusCode.js";
 import { AppError } from "../../../../common/utils/AppError.js";
 import { Product } from "../../../admin-side/product-management/models/product.model.js";
 import { Variant } from "../../../admin-side/product-management/models/variant.model.js";
+import { applyOffersToProducts } from "../../offer/helpers/applyOffersToProducts.helper.js";
+import { applyOfferToProduct } from "../../offer/helpers/applyOfferToProduct.helper.js";
+import { getActiveOffers } from "../../offer/helpers/getActiveOffers.helper.js";
 
 
 
@@ -27,18 +30,22 @@ export const getProductDetailsService = async (slug) => {
   
   const variants = await Variant.find({
 	product: product._id,
-
 	isDeleted: false,
   }).lean();
+
+  const productWithVariants={
+    ...product,
+    variants
+  }
+
+const offers= await getActiveOffers()
+  const productWithOffers= applyOfferToProduct({product: productWithVariants, offers})
 
   return {
 	message: "Product details fetched successfully",
 
-	data: {
-	  ...product,
-	  variants,
-	},
-  };
+	data: productWithOffers,
+  }
 };
 
 
@@ -62,6 +69,7 @@ export const getSimilarProductsService = async (slug) => {
     .populate("subcategory", "name")
     .lean();
 
+
   const productIds = products.map((product) => product._id);
 
   const variants = await Variant.find({
@@ -72,13 +80,20 @@ export const getSimilarProductsService = async (slug) => {
     isActive: true,
   }).lean();
 
-  const formattedProducts = products.map((product) => ({
-    ...product,
-    variants: variants.filter(
-      (variant) => variant.product.toString() === product._id.toString(),
-    ),
-  }));
+    const productWithVariants = products.map((product) => ({
+      ...product,
+      variants: variants.filter(
+        (variant) => variant.product.toString() === product._id.toString(),
+      ),
+    }));
 
+  
+   const offers = await getActiveOffers();
+  const formattedProducts = applyOffersToProducts({
+    products: productWithVariants,
+    offers
+  });
+  
   return {
     message: "Similar products fetched successfully",
     data: formattedProducts,
