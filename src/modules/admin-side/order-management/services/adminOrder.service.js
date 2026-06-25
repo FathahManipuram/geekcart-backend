@@ -2,6 +2,7 @@ import { ITEM_STATUSES, ORDER_STATUSES } from "../../../../common/constants/orde
 import { ITEM_STATUS_TRANSITIONS, ORDER_STATUS_TRANSITIONS } from "../../../../common/constants/order/orderStatusTransistion.js";
 import { HTTP_STATUS } from "../../../../common/constants/statusCode.js";
 import { AppError } from "../../../../common/utils/AppError.js";
+import { calculateItemRefund } from "../../../user-side/order/helpers/calculateItemRefund.js";
 import { Order } from "../../../user-side/order/models/order.model.js"
 import { processReferralReward } from "../../../user-side/referral/services/referral.service.js";
 import { creditWallet } from "../../../user-side/wallet/services/wallet.service.js";
@@ -114,6 +115,22 @@ export const updateOrderStatusService = async ({ orderId, orderStatus }) => {
     throw new AppError("Order not found", HTTP_STATUS.NOT_FOUND);
   }
 
+
+  const canCancelOrder = order.items.every(
+    (item) =>
+      ![ITEM_STATUSES.DELIVERED, ITEM_STATUSES.CANCELLED].includes(
+        item.itemStatus,
+      ),
+  );
+  if (orderStatus === ORDER_STATUSES.CANCELLED && !canCancelOrder) {
+    throw new AppError(
+      "Partial orders cannot be cancelled",
+      HTTP_STATUS.BAD_REQUEST,
+    );
+  }
+
+
+
   const currentStatus = order.orderStatus;
 
   const allowedStatuses = ORDER_STATUS_TRANSITIONS[currentStatus] || [];
@@ -126,84 +143,93 @@ export const updateOrderStatusService = async ({ orderId, orderStatus }) => {
   }
 
  
-  if (orderStatus === ORDER_STATUSES.CANCELLED) {
-  
-    if (order.paymentStatus === "FULLY_REFUNDED") {
-      throw new AppError("Order already refunded", HTTP_STATUS.BAD_REQUEST);
-    }
-
-    const refundableItems = order.items.filter(
-      (item) =>
-        ![ITEM_STATUSES.DELIVERED, ITEM_STATUSES.CANCELLED].includes(
-          item.itemStatus,
-        ),
+  if (orderStatus === ORDER_STATUSES.CANCELLED) {if (orderStatus === ORDER_STATUSES.CANCELLED) {
+  if (order.paymentStatus === "FULLY_REFUNDED") {
+    throw new AppError(
+      "Order already refunded",
+      HTTP_STATUS.BAD_REQUEST,
     );
+  }
 
-    const refundAmount = refundableItems.reduce(
-      (sum, item) => sum + (item.salePrice || item.price) * item.quantity,
-      0,
-    );
+  const refundableItems = order.items.filter(
+    (item) =>
+      ![
+        ITEM_STATUSES.DELIVERED,
+        ITEM_STATUSES.CANCELLED,
+      ].includes(item.itemStatus),
+  );
 
-    
-    for (const item of refundableItems) {
-      item.itemStatus = ITEM_STATUSES.CANCELLED;
+  let refundAmount = 0;
 
-      item.itemStatusHistory.push({
-        status: ITEM_STATUSES.CANCELLED,
-        updatedBy: "ADMIN",
-      });
+  for (const item of refundableItems) {
+    item.itemStatus = ITEM_STATUSES.CANCELLED;
 
-      item.cancellation = {
-        cancelledAt: new Date(),
-        cancelledBy: "ADMIN",
-      };
+    item.itemStatusHistory.push({
+      status: ITEM_STATUSES.CANCELLED,
+      updatedBy: "ADMIN",
+    });
 
-      item.refundAmount = (item.salePrice || item.price) * item.quantity;
-
-      item.refundStatus = "COMPLETED";
-    }
-
-  
-    await Promise.all(
-      refundableItems.map((item) =>
-        Variant.updateOne(
-          { _id: item.variantId },
-          {
-            $inc: {
-              stock: item.quantity,
-            },
-          },
-        ),
-      ),
-    );
-
-
-    if (
-      order.paymentMethod === "RAZORPAY" &&
-      order.paymentStatus === "PAID" &&
-      refundAmount > 0
-    ) {
-      await creditWallet({
-        userId: order.user,
-
-        amount: refundAmount,
-
-        reason: "ORDER_CANCELLED",
-
-        description: `Refund for cancelled order ${order.orderNumber}`,
-
-        referenceId: order._id,
-      });
-
-      order.paymentStatus = "FULLY_REFUNDED";
-    }
-
-    order.cancellation = {
+    item.cancellation = {
       cancelledAt: new Date(),
       cancelledBy: "ADMIN",
     };
+
+    await Variant.updateOne(
+      { _id: item.variantId },
+      {
+        $inc: {
+          stock: item.quantity,
+        },
+      },
+    );
+
+    if (
+      ["RAZORPAY", "WALLET"].includes(order.paymentMethod) &&
+      order.paymentStatus === "PAID" &&
+      item.refundStatus !== "COMPLETED"
+    ) {
+      const refund = calculateItemRefund({
+        order,
+        item,
+        operation: "CANCELLATION",
+      });
+
+      refundAmount += refund;
+
+      item.refundAmount = refund;
+      item.refundStatus = "COMPLETED";
+    }
   }
 
+  if (
+    ["RAZORPAY", "WALLET"].includes(order.paymentMethod) &&
+    order.paymentStatus === "PAID" &&
+    refundAmount > 0
+  ) {
+    await creditWallet({
+      userId: order.user,
+      amount: refundAmount,
+      reason: "ORDER_CANCELLED",
+      description: `Refund for cancelled order ${order.orderNumber}`,
+      referenceId: order._id,
+    });
+
+    order.paymentStatus = "FULLY_REFUNDED";
+  }
+
+  order.orderStatus = ORDER_STATUSES.CANCELLED;
+
+  order.statusHistory.push({
+    status: ORDER_STATUSES.CANCELLED,
+    updatedBy: "ADMIN",
+  });
+
+  order.cancellation = {
+    cancelledAt: new Date(),
+    cancelledBy: "ADMIN",
+  };
+}
+  }
 
   else {
     for (const item of order.items) {
@@ -275,47 +301,49 @@ export const updateOrderItemStatusService = async ({
   });
 
 
-  if (status === ITEM_STATUSES.CANCELLED) {
-    if (item.refundStatus === "COMPLETED") {
-      throw new AppError("Item already refunded", HTTP_STATUS.BAD_REQUEST);
-    }
+ if (status === ITEM_STATUSES.CANCELLED) {
+   if (item.refundStatus === "COMPLETED") {
+     throw new AppError("Item already refunded", HTTP_STATUS.BAD_REQUEST);
+   }
 
-    const refundAmount = (item.salePrice || item.price) * item.quantity;
-
-    item.cancellation = {
-      cancelledAt: new Date(),
-      cancelledBy: "ADMIN",
-    };
+   item.cancellation = {
+     cancelledAt: new Date(),
+     cancelledBy: "ADMIN",
+   };
 
 
-    await Variant.updateOne(
-      { _id: item.variantId },
-      {
-        $inc: {
-          stock: item.quantity,
-        },
-      },
-    );
+   await Variant.updateOne(
+     { _id: item.variantId },
+     {
+       $inc: {
+         stock: item.quantity,
+       },
+     },
+   );
 
+  
+   if (
+     ["RAZORPAY", "WALLET"].includes(order.paymentMethod) &&
+     order.paymentStatus === "PAID"
+   ) {
+     const refundAmount = calculateItemRefund({
+       order,
+       item,
+       operation: "CANCELLATION",
+     });
 
-    if (order.paymentMethod === "RAZORPAY" && order.paymentStatus === "PAID") {
-      await creditWallet({
-        userId: order.user,
+     await creditWallet({
+       userId: order.user,
+       amount: refundAmount,
+       reason: "ITEM_CANCELLED",
+       description: `Refund for cancelled item ${item.name}`,
+       referenceId: order._id,
+     });
 
-        amount: refundAmount,
-
-        reason: "ITEM_CANCELLED",
-
-        description: `Refund for cancelled item ${item.name}`,
-
-        referenceId: order._id,
-      });
-
-      item.refundAmount = refundAmount;
-
-      item.refundStatus = "COMPLETED";
-    }
-  }
+     item.refundAmount = refundAmount;
+     item.refundStatus = "COMPLETED";
+   }
+ }
 
 
 
@@ -356,7 +384,10 @@ if (
     cancelledBy: "ADMIN",
   };
 
-  if (order.paymentMethod === "RAZORPAY" && order.paymentStatus === "PAID") {
+  if (
+    ["RAZORPAY", "WALLET"].includes(order.paymentMethod) &&
+    order.paymentStatus === "PAID"
+  ) {
     order.paymentStatus = "FULLY_REFUNDED";
   }
 }
