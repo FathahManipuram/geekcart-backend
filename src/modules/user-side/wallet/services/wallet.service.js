@@ -148,6 +148,7 @@ export const debitWallet = async ({
   reason,
   description,
   referenceId = null,
+  session,
 }) => {
   const wallet = await Wallet.findOne({
     user: userId,
@@ -219,9 +220,9 @@ export const getWalletTransactionsService = async (userId, query) => {
     filter.type = query.type;
   }
 
-  if(query.search && query.search.trim().length){
+  if(search && search.trim().length){
 	filter.reason={
-		$regex: query.search.trim(),
+		$regex: search.trim(),
 		$options: "i"
 	}
   }
