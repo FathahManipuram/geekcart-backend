@@ -86,7 +86,7 @@ export const cancelAllOrderController = async (req, res, next) => {
 // Download invoice
 export const downloadinvoiceController= async(req, res, next)=>{
   try{
-     console.log("Invoice Request Hit");
+    
     await downloadinvoiceService({
       orderId: req.params.orderId,
       userId: req.user.id,

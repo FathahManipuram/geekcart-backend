@@ -3,18 +3,20 @@ import { HTTP_STATUS } from "../../../../common/constants/statusCode.js";
 import { AppError } from "../../../../common/utils/AppError.js";
 import { Variant } from "../../../admin-side/product-management/models/variant.model.js";
 import { Address } from "../../address/models/address.model.js";
-import { calculateCartSummary } from "../../cart/helpers/cart.helper.js";
 import { Cart } from "../../cart/models/cart.model.js";
 import { validateCartItems } from "../helpers/validateCartItems.helper.js";
 import { Order } from "../models/order.model.js";
 import { ITEM_STATUSES, ORDER_STATUSES } from "../../../../common/constants/order/orderStatus.js";
 import { recalculateOrderStatus } from "../helpers/recalculateOrderStatus.js";
 import { generateInvoicePdf } from "../../../../common/utils/pdf/invoicePdf.js";
-import { creditWallet } from "../../wallet/services/wallet.service.js";
+import { creditWallet, debitWallet } from "../../wallet/services/wallet.service.js";
 import { processReferralReward } from "../../referral/services/referral.service.js";
 import { Coupon } from "../../../admin-side/coupon-management/models/coupon.model.js";
-import { calculateCouponDiscount } from "../../coupon/helper/calculateCouponDiscount.helper.js";
-import { validateCoupon } from "../../coupon/helper/validateCoupon.helper.js";
+import { calculateCheckoutSummary } from "../helpers/calculateCheckoutSummary.js";
+import { Wallet } from "../../wallet/models/wallet.model.js";
+import { calculateCartSummary } from "../../cart/helpers/cart.helper.js";
+import { calculateItemRefund } from "../helpers/calculateItemRefund.js";
+
 
 
 // Create order
@@ -26,190 +28,237 @@ export const createOrderService = async ({
   paymentDetails,
   couponId,
 }) => {
-  if (paymentMethod === "RAZORPAY" && !paymentDetails?.razorpayPaymentId) {
-    throw new AppError("Payment details are required", HTTP_STATUS.BAD_REQUEST);
-  }
+  const session = await mongoose.startSession();
 
-  const address = await Address.findOne({
-    _id: addressId,
-    userId,
-  });
+  try {
+    session.startTransaction();
 
-  if (!address) {
-    throw new AppError("Address not found", HTTP_STATUS.NOT_FOUND);
-  }
+    
+    if (paymentMethod === "RAZORPAY" && !paymentDetails?.razorpayPaymentId) {
+      throw new AppError(
+        "Payment details are required",
+        HTTP_STATUS.BAD_REQUEST,
+      );
+    }
 
-  const cart = await Cart.findOne({ userId });
-
-  if (!cart || !cart.items.length) {
-    throw new AppError("Cart is empty", HTTP_STATUS.BAD_REQUEST);
-  }
-
-  const validationResult = await validateCartItems(cart.items);
-
-  if (!validationResult.valid) {
-    throw new AppError("Checkout validation failed", HTTP_STATUS.BAD_REQUEST);
-  }
-
-  const speedCharge = deliveryMethod === "EXPRESS" ? 25 : 0;
-
-  const { subtotal, discount, shippingCharge, deliveryCharge, total } =
-    calculateCartSummary(cart.items, speedCharge);
-
-  let couponSnapshot = null;
-  let couponDiscount = 0;
-
-  if (couponId) {
-    const coupon = await Coupon.findById(couponId);
-
-    validateCoupon({
-      coupon,
-      subtotal,
+    const address = await Address.findOne({ _id: addressId, userId }, null, {
+      session,
     });
 
-    couponDiscount = calculateCouponDiscount({
-      coupon,
+    if (!address) {
+      throw new AppError("Address not found", HTTP_STATUS.NOT_FOUND);
+    }
+
+
+ const cart = await Cart.findOne({ userId }, null, { session }).populate({
+   path: "items.productId",
+   select: "name slug category subcategory isActive isDeleted",
+ });
+
+    if (!cart || !cart.items.length) {
+      throw new AppError("Cart is empty", HTTP_STATUS.BAD_REQUEST);
+    }
+
+
+    const validationResult = await validateCartItems(cart.items);
+    if (!validationResult.valid) {
+      throw new AppError(
+        "Checkout validation failed",
+        HTTP_STATUS.BAD_REQUEST,
+        validationResult.issues, 
+      );
+    }
+
+
+    const {
       subtotal,
+      discount,
+      shippingCharge,
+      deliveryCharge,
+      speedCharge,
+      couponSnapshot,
+      finalTotal,
+    recalculatedItems,
+    } = await calculateCheckoutSummary({
+      userId,
+      cart,
+      deliveryMethod,
+      couponId,
+      session,
     });
 
-    couponSnapshot = {
-      couponId: coupon._id,
-      code: coupon.code,
-      discountAmount: couponDiscount,
-    };
-  }
 
-  const finalTotal = Math.max(0, total - couponDiscount);
+    if (paymentMethod === "WALLET") {
+      const wallet = await Wallet.findOne(
+        { user: userId, isActive: true },
+        null,
+        { session },
+      );
+      if (!wallet) {
+        throw new AppError(
+          "Wallet not found",
+          HTTP_STATUS.BAD_REQUEST,
+        );
+      }
+      if (wallet.balance < finalTotal) {
+        throw new AppError(
+          "Insufficient wallet balance",
+          HTTP_STATUS.BAD_REQUEST,
+        );
+      }
+    }
 
 
-  await Promise.all(
-    cart.items.map(async (item) => {
+    for (const item of cart.items) {
       const result = await Variant.updateOne(
         {
           _id: item.variantId,
-          stock: {
-            $gte: item.quantity,
-          },
+          stock: { $gte: item.quantity },
         },
         {
-          $inc: {
-            stock: -item.quantity,
-          },
+          $inc: { stock: -item.quantity },
         },
+        { session },
       );
 
-      if (result.modifiedCount === 0) {
+      if (!result.modifiedCount) {
         throw new AppError(
           `${item.name} is out of stock`,
           HTTP_STATUS.BAD_REQUEST,
         );
       }
-    }),
-  );
-
-  const order = await Order.create({
-    user: userId,
-
-    items: cart.items.map((item) => ({
-      product: item.productId,
-      variantId: item.variantId,
-      name: item.name,
-      image: item.image,
-      size: item.size,
-      color: item.color,
-      quantity: item.quantity,
-      price: item.price,
-      salePrice: item.salePrice,
-    })),
-
-    shippingAddress: {
-      fullName: address.fullName,
-      phoneNumber: address.phoneNumber,
-      addressLine: address.addressLine,
-      landmark: address.landmark,
-      city: address.city,
-      state: address.state,
-      pincode: address.pincode,
-      country: address.country,
-      addressLabel: address.addressLabel,
-    },
-
-    deliveryMethod,
-
-    paymentMethod,
-
-    paymentStatus: paymentMethod === "RAZORPAY" ? "PAID" : "PENDING",
-
-    paymentDetails:
-      paymentMethod === "RAZORPAY"
-        ? {
-            razorpayOrderId: paymentDetails?.razorpayOrderId,
-
-            razorpayPaymentId: paymentDetails?.razorpayPaymentId,
-
-            razorpaySignature: paymentDetails?.razorpaySignature,
-
-            paidAt: new Date(),
-          }
-        : null,
-
-    subtotal,
-
-    discount,
-
-    speedCharge,
-
-    shippingCharge,
-
-    deliveryCharge,
-
-    coupon: couponSnapshot,
-
-    totalAmount: finalTotal,
-  });
-
-  if (couponSnapshot) {
-    await Coupon.updateOne(
-      {
-        _id: couponSnapshot.couponId,
-      },
-      {
-        $inc: {
-          usedCount: 1,
-        },
-      },
-    );
-  }
-
-  cart.items = [];
-
-  cart.summary = {
-    subtotal: 0,
-    discount: 0,
-    shippingCharge: 0,
-    total: 0,
-  };
-
-  await cart.save();
-
-  try {
-    if (paymentMethod === "RAZORPAY" && order.paymentStatus === "PAID") {
-      await processReferralReward(userId);
     }
-  } catch (error) {
-    console.error("Referral reward failed:", error);
-  }
+const orderItemsSnapshot = recalculatedItems.map((item) => ({
+  product: item.productId._id || item.productId,
+  variantId: item.variantId,
+  name: item.name,
+  image: item.image,
+  size: item.size,
+  color: item.color,
+  quantity: item.quantity,
+  price: item.price,
+  salePrice: item.salePrice,
+  appliedOffer: item.appliedOffer
+    ? {
+        offerId: item.appliedOffer._id,
+        name: item.appliedOffer.name,
+        offerType: item.appliedOffer.offerType,
+        discountType: item.appliedOffer.discountType,
+        discountValue: item.appliedOffer.discountValue,
+        maxDiscountAmount: item.appliedOffer.maxDiscountAmount,
+        discountAmount: item.discountAmount,
+      }
+    : null,
+}));
 
-  return {
-    message: "Order placed successfully",
-    data: {
-      orderId: order._id,
-      orderNumber: order.orderNumber,
-      totalAmount: order.totalAmount,
-      orderStatus: order.orderStatus,
-    },
-  };
+    const [order] = await Order.create(
+      [
+        {
+          user: userId,
+          items: orderItemsSnapshot,
+          shippingAddress: {
+            fullName: address.fullName,
+            phoneNumber: address.phoneNumber,
+            addressLine: address.addressLine,
+            landmark: address.landmark,
+            city: address.city,
+            state: address.state,
+            pincode: address.pincode,
+            country: address.country,
+            addressLabel: address.addressLabel,
+          },
+          deliveryMethod,
+          paymentMethod,
+          paymentStatus: paymentMethod === "COD" ? "PENDING" : "PAID",
+          paymentDetails:
+            paymentMethod === "RAZORPAY"
+              ? {
+                  razorpayOrderId: paymentDetails?.razorpayOrderId,
+                  razorpayPaymentId: paymentDetails?.razorpayPaymentId,
+                  razorpaySignature: paymentDetails?.razorpaySignature,
+                  paidAt: new Date(),
+                }
+              : null,
+          subtotal,
+          discount,
+          speedCharge,
+          shippingCharge,
+          deliveryCharge,
+          coupon: couponSnapshot,
+          totalAmount: finalTotal,
+        },
+      ],
+      { session },
+    );
+
+
+    if (paymentMethod === "WALLET") {
+      const walletResult = await debitWallet({
+        userId,
+        amount: finalTotal,
+        reason: "ORDER_PAYMENT",
+        description: `Payment for order ${order.orderNumber}`,
+        referenceId: order._id,
+        session,
+      });
+
+      const walletTxId = walletResult?.transaction?._id || walletResult?._id;
+
+
+      order.paymentDetails = {
+        ...order.paymentDetails,
+        walletTransactionId: walletTxId,
+        paidAt: new Date(),
+      };
+
+
+      await order.save({ session });
+    }
+
+  
+    if (couponSnapshot) {
+      await Coupon.updateOne(
+        { _id: couponSnapshot.couponId },
+        { $inc: { usedCount: 1 } },
+        { session },
+      );
+    }
+
+    
+    cart.items = [];
+    cart.summary = { subtotal: 0, discount: 0, deliveryCharge: 0, total: 0 };
+    await cart.save({ session });
+
+
+    await session.commitTransaction();
+
+
+    if (order.paymentStatus === "PAID") {
+      processReferralReward(userId).catch((error) => {
+        console.error("Referral reward background tracking failure:", error);
+      });
+    }
+
+    return {
+      message: "Order placed successfully",
+      data: {
+        orderId: order._id,
+        orderNumber: order.orderNumber,
+        totalAmount: order.totalAmount,
+        orderStatus: order.orderStatus,
+      },
+    };
+  } catch (err) {
+    if (session.inTransaction()) {
+      await session.abortTransaction();
+    }
+    throw err;
+  } finally {
+    session.endSession();
+  }
 };
+
+
 
 
 
@@ -309,13 +358,21 @@ item.cancellation = {
   cancelledBy: "USER",
 };
 
-if (order.paymentMethod === "RAZORPAY" && order.paymentStatus === "PAID") {
-  const refundAmount = (item.salePrice || item.price) * item.quantity;
+const refundablePayments = ["RAZORPAY", "WALLET"];
 
-if (item.refundStatus === "COMPLETED") {
-  throw new AppError("Refund already processed", HTTP_STATUS.BAD_REQUEST);
-}
+if (
+  refundablePayments.includes(order.paymentMethod) &&
+  order.paymentStatus === "PAID"
+) {
+  const refundAmount = calculateItemRefund({
+    order,
+    item,
+    operation: "CANCELLATION",
+  });
 
+  if (item.refundStatus === "COMPLETED") {
+    throw new AppError("Refund already processed", HTTP_STATUS.BAD_REQUEST);
+  }
 
   await creditWallet({
     userId: order.user,
@@ -358,102 +415,126 @@ if (item.refundStatus === "COMPLETED") {
 
 
 //Cancel All order
-export const cancelAllOrderService= async({userId, orderId, reason})=>{
-
-  if(!mongoose.Types.ObjectId.isValid(orderId)){
+export const cancelAllOrderService = async ({ userId, orderId, reason }) => {
+  if (!mongoose.Types.ObjectId.isValid(orderId)) {
     throw new AppError("Invalid order id", HTTP_STATUS.BAD_REQUEST);
   }
 
-  const order= await Order.findOne({_id: orderId, user: userId})
+  const order = await Order.findOne({
+    _id: orderId,
+    user: userId,
+  });
 
-  if(!order){
+  if (!order) {
     throw new AppError("Order not found", HTTP_STATUS.NOT_FOUND);
   }
 
-const blockedStatuses = ["SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED"];
+  const blockedStatuses = [
+    ITEM_STATUSES.SHIPPED,
+    ITEM_STATUSES.OUT_FOR_DELIVERY,
+    ITEM_STATUSES.DELIVERED,
+  ];
 
-const hasBlockedItems= order.items.some((item)=> blockedStatuses.includes(item.itemStatus))
+  const hasBlockedItems = order.items.some((item) =>
+    blockedStatuses.includes(item.itemStatus),
+  );
 
-if(hasBlockedItems){
-   throw new AppError(
-     "Order can no longer be cancelled",
-     HTTP_STATUS.BAD_REQUEST,
-   );
-}
+  if (hasBlockedItems) {
+    throw new AppError(
+      "Order can no longer be cancelled",
+      HTTP_STATUS.BAD_REQUEST,
+    );
+  }
 
-const cancellableStatuses = [ITEM_STATUSES.PLACED, ITEM_STATUSES.PROCESSING];
+  const cancellableStatuses = [ITEM_STATUSES.PLACED, ITEM_STATUSES.PROCESSING];
 
- order.items.forEach((item)=>{
-  if(cancellableStatuses.includes(item.itemStatus)){
-    item.itemStatus= ITEM_STATUSES.CANCELLED
+  let totalRefund = 0;
+
+  for (const item of order.items) {
+    if (!cancellableStatuses.includes(item.itemStatus)) {
+      continue;
+    }
+
+    item.itemStatus = ITEM_STATUSES.CANCELLED;
 
     item.itemStatusHistory.push({
       status: ITEM_STATUSES.CANCELLED,
       updatedBy: "USER",
-    })
+    });
 
-    item.cancellation= {
+    item.cancellation = {
       reason,
       cancelledAt: new Date(),
       cancelledBy: "USER",
+    };
+
+    await Variant.updateOne(
+      { _id: item.variantId },
+      {
+        $inc: {
+          stock: item.quantity,
+        },
+      },
+    );
+
+    if (
+      ["RAZORPAY", "WALLET"].includes(order.paymentMethod) &&
+      order.paymentStatus === "PAID" &&
+      item.refundStatus !== "COMPLETED"
+    ) {
+      const refund = calculateItemRefund({
+        order,
+        item,
+        operation: "CANCELLATION",
+      });
+
+      totalRefund += refund;
+
+      item.refundAmount = refund;
+      item.refundStatus = "COMPLETED";
     }
   }
- })
 
- order.orderStatus= ORDER_STATUSES.CANCELLED
+  if (
+    ["RAZORPAY", "WALLET"].includes(order.paymentMethod) &&
+    order.paymentStatus === "PAID" &&
+    totalRefund > 0
+  ) {
+    await creditWallet({
+      userId: order.user,
+      amount: totalRefund,
+      reason: "ORDER_CANCELLED",
+      description: `Refund for cancelled order ${order.orderNumber}`,
+      referenceId: order._id,
+    });
 
- order.statusHistory.push({
-  status: ORDER_STATUSES.CANCELLED,
-  updatedBy: "USER",
- })
-
-
-let totalRefund = 0;
-
-for (const item of order.items) {
-  if (cancellableStatuses.includes(item.itemStatus)) {
-    totalRefund += (item.salePrice || item.price) * item.quantity;
+    order.paymentStatus = "FULLY_REFUNDED";
   }
-}
 
-if (
-  order.paymentMethod === "RAZORPAY" &&
-  order.paymentStatus === "PAID" &&
-  totalRefund > 0
-) {
-  await creditWallet({
-    userId: order.user,
+  order.orderStatus = ORDER_STATUSES.CANCELLED;
 
-    amount: totalRefund,
-
-    reason: "ORDER_CANCELLED",
-
-    description: `Refund for cancelled order ${order.orderNumber}`,
-
-    referenceId: order._id,
+  order.statusHistory.push({
+    status: ORDER_STATUSES.CANCELLED,
+    updatedBy: "USER",
   });
 
-  order.paymentStatus = "FULLY_REFUNDED";
-}
+  order.cancellation = {
+    reason,
+    cancelledAt: new Date(),
+    cancelledBy: "USER",
+  };
 
+  await order.save();
 
- await order.save()
-
-  
-
-    await Promise.all(order.items.map((item)=>
-    Variant.updateOne({_id: item.variantId}, {$inc: {stock: item.quantity}})
-    ))
-
-
-    return {
-      message: "Order cancelled successfully",
-      data: {
-        orderId: order._id,
-        orderStatus: order.orderStatus,
-      },
-    };
-}
+  return {
+    message: "Order cancelled successfully",
+    data: {
+      orderId: order._id,
+      orderStatus: order.orderStatus,
+      refundedAmount: totalRefund,
+    },
+  };
+};
 
 // Download invoice
 export const downloadinvoiceService = async ({ orderId, userId, res }) => {

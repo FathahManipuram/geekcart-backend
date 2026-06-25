@@ -33,6 +33,19 @@ const orderItemSchema = new mongoose.Schema(
       default: null,
     },
 
+    appliedOffer: {
+      offerId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Offer",
+      },
+      name: String,
+      offerType: String,
+      discountType: String,
+      discountValue: Number,
+      maxDiscountAmount: Number,
+      discountAmount: Number,
+    },
+
     itemStatus: {
       type: String,
       enum: MODEL_ITEM_STATUSES,
@@ -126,7 +139,7 @@ const orderSchema = new mongoose.Schema(
 
     paymentMethod: {
       type: String,
-      enum: ["COD", "RAZORPAY"],
+      enum: ["COD", "RAZORPAY", "WALLET"],
       required: true,
     },
 
@@ -148,6 +161,10 @@ const orderSchema = new mongoose.Schema(
       razorpayPaymentId: { type: String },
       razorpaySignature: { type: String },
       paidAt: { type: Date },
+      walletTransactionId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "WalletTransaction",
+      },
     },
 
     orderStatus: {
