@@ -3,6 +3,9 @@
 import { HTTP_STATUS } from "../../../../common/constants/statusCode.js";
 import { AppError } from "../../../../common/utils/AppError.js";
 import { Variant } from "../../../admin-side/product-management/models/variant.model.js";
+import { getActiveOffers } from "../../offer/helpers/getActiveOffers.helper.js";
+import { getVariantWithOffer } from "../../offer/helpers/getVariantWithOffer.helper.js";
+import { applyOffersToCartItems } from "../helpers/applyOffersToCartItems.helper.js";
 import { calculateCartSummary } from "../helpers/cart.helper.js";
 import { Cart } from "../models/cart.model.js";
 
@@ -59,6 +62,8 @@ if(existingItemIndex < 0 && activeCart.items.length >=10){
   );
 }
 
+  const variantWithOffer = await getVariantWithOffer(variant);
+
 if (existingItemIndex > -1) {
     const existingItem = activeCart.items[existingItemIndex];
     const newQuantity = existingItem.quantity + quantity;
@@ -78,20 +83,22 @@ if (existingItemIndex > -1) {
 
 
 activeCart.items[existingItemIndex].quantity = newQuantity;
+activeCart.items[existingItemIndex].salePrice = variantWithOffer.salePrice;
 
 }else{
+
   activeCart.items.push({
-      productId: variant.product._id,
-      variantId: variant._id,
-      name: variant.product.name,
-      image: variant.images?.[0] || "",
-      color: variant.color,
-      size: variant.size,
-      price: variant.price,
-      salePrice: variant.salePrice,
-      quantity,
-      stock: variant.stock,
-    });
+    productId: variant.product._id,
+    variantId: variant._id,
+    name: variant.product.name,
+    image: variant.images?.[0] || "",
+    color: variant.color,
+    size: variant.size,
+    price: variant.price,
+    salePrice: variantWithOffer.salePrice,
+    quantity,
+    stock: variant.stock,
+  });
 }
 
 activeCart.summary = calculateCartSummary(activeCart.items)
@@ -112,7 +119,7 @@ export const getCartService=async(userId)=>{
   const cart = await Cart.findOne({ userId })
     .populate({
       path: "items.productId",
-      select: "name isActive isDeleted slug",
+      select: "name slug category subcategory isActive isDeleted",
     })
     .populate({
       path: "items.variantId",
@@ -138,9 +145,24 @@ export const getCartService=async(userId)=>{
     };
   }
 
+  const offers = await getActiveOffers();
+
+   const items = applyOffersToCartItems({
+     items: cart.items,
+     offers,
+   });
+
+   const summary = calculateCartSummary(items);
+ const cartObj = cart.toObject();
+
+
   return {
     message: "Cart fetched successfully",
-    data: cart,
+    data: {
+      ...cartObj,
+      items,
+      summary,
+    },
   };
 
 }
