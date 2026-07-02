@@ -8,7 +8,7 @@ const router = Router()
 router.post("/", validate(createCouponSchema), createCouponController)
 router.get("/", getCouponController)
 router.get("/:couponId", getCouponDetailsController)
-router.put("/:couponId", validate(updateCouponSchema), updateCouponController)
+router.patch("/:couponId", validate(updateCouponSchema), updateCouponController)
 router.patch("/:couponId/status", toggleCouponStatusController)
 router.delete("/:couponId", DeleteCouponController)
 

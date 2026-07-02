@@ -422,7 +422,7 @@ export const getProductsService = async (query) => {
   
   if (search.trim()) {
     filters.name = {
-      $regex: search,
+      $regex: search.trim(),
       $options: "i",
     };
   }

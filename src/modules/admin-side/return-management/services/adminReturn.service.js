@@ -2,7 +2,9 @@ import { RETURN_REQUEST_STATUSES } from "../../../../common/constants/adminRetur
 import { RETURN_STATUS_TRANSITIONS } from "../../../../common/constants/adminReturn/returnStatusTransition.js";
 import { HTTP_STATUS } from "../../../../common/constants/statusCode.js";
 import { AppError } from "../../../../common/utils/AppError.js";
+import { handleCouponRestoration } from "../../../user-side/coupon/helper/handleCouponRestoration.helper.js";
 import { calculateItemRefund } from "../../../user-side/order/helpers/calculateItemRefund.js";
+import { recalculateOrderStatus } from "../../../user-side/order/helpers/recalculateOrderStatus.js";
 import { Order } from "../../../user-side/order/models/order.model.js";
 import { User } from "../../../user-side/user-profile/models/user.model.js";
 import { creditWallet } from "../../../user-side/wallet/services/wallet.service.js";
@@ -71,14 +73,130 @@ query.$or= [
 };
 
 
+// // Update request status
+// export const updateReturnRequestStatusService = async ({
+//   returnId,
+//   status,
+//   adminNote,
+// }) => {
+
+// 	if (
+//     status === RETURN_REQUEST_STATUSES.RETURN_REJECTED &&
+//     !adminNote?.trim()
+//   ) {
+//     throw new AppError("Rejection reason is required", HTTP_STATUS.BAD_REQUEST);
+//   }
+//   const returnRequest = await ReturnRequest.findById(returnId);
+
+//   if (!returnRequest) {
+//     throw new AppError("Return request not found", HTTP_STATUS.NOT_FOUND);
+//   }
+
+//   const allowedStatuses = RETURN_STATUS_TRANSITIONS[returnRequest.status] || [];
+
+//   if (!allowedStatuses.includes(status)) {
+//     throw new AppError(
+//       "Invalid return status transition",
+//       HTTP_STATUS.BAD_REQUEST,
+//     );
+//   }
+
+//   const order = await Order.findById(returnRequest.order);
+
+//   if (!order) {
+//     throw new AppError("Order not found", HTTP_STATUS.NOT_FOUND);
+//   }
+
+//   const item = order.items.id(returnRequest.orderItemId);
+
+//   if (!item) {
+//     throw new AppError("Order item not found", HTTP_STATUS.NOT_FOUND);
+//   }
+
+
+//   returnRequest.status = status;
+
+//   returnRequest.statusHistory.push({
+//     status,
+//     updatedBy: "ADMIN",
+//   });
+// returnRequest.adminNote= adminNote
+
+//   item.itemStatus = status;
+
+//   item.itemStatusHistory.push({
+//     status,
+//     updatedBy: "ADMIN",
+//   });
+
+
+//  if (status === RETURN_REQUEST_STATUSES.RETURN_APPROVED) {
+//    const refundAmount = calculateItemRefund({
+//      order,
+//      item,
+//      operation: "RETURN",
+//    });
+
+//    returnRequest.refundAmount = refundAmount;
+//  }
+
+// if (status === RETURN_REQUEST_STATUSES.RETURN_COMPLETED) {
+//   if (returnRequest.refundStatus === "COMPLETED") {
+//     throw new AppError("Refund already processed", HTTP_STATUS.BAD_REQUEST);
+//   }
+
+//   await creditWallet({
+//     userId: returnRequest.user,
+//     amount: returnRequest.refundAmount,
+//     reason: "RETURN_REFUND",
+//     description: `Refund for returned item ${returnRequest.itemSnapshot.name}`,
+//     referenceId: returnRequest._id,
+//   });
+
+//   returnRequest.refundStatus = "COMPLETED";
+//   returnRequest.resolvedAt = new Date();
+
+//   item.refundAmount = returnRequest.refundAmount;
+//   item.refundStatus = "COMPLETED";
+
+//   await Variant.updateOne(
+//     { _id: item.variantId },
+//     {
+//       $inc: {
+//         stock: item.quantity,
+//       },
+//     },
+//   );
+// }
+
+// const remainingActiveItems = order.items.filter(
+//       (i) => i._id.toString() !== item._id.toString() && !["CANCELLED", "RETURN_COMPLETED"].includes(i.itemStatus)
+//     );
+
+//     if (remainingActiveItems.length === 0) {
+//       await handleCouponRestoration(order);
+//       console.log(`[Coupon Restored] Last item returned. Reverted usedCount for order: ${order.orderNumber}`);
+//     }
+  
+
+//     await order.save();
+//     await returnRequest.save();
+
+//   return {
+//     message: "Return status updated successfully",
+//     data: returnRequest,
+//   };
+// };
+
+
+
 // Update request status
 export const updateReturnRequestStatusService = async ({
   returnId,
   status,
   adminNote,
 }) => {
-
-	if (
+  if (
     status === RETURN_REQUEST_STATUSES.RETURN_REJECTED &&
     !adminNote?.trim()
   ) {
@@ -111,65 +229,80 @@ export const updateReturnRequestStatusService = async ({
     throw new AppError("Order item not found", HTTP_STATUS.NOT_FOUND);
   }
 
-
   returnRequest.status = status;
-
   returnRequest.statusHistory.push({
     status,
     updatedBy: "ADMIN",
   });
-returnRequest.adminNote= adminNote
+  returnRequest.adminNote = adminNote;
 
   item.itemStatus = status;
-
   item.itemStatusHistory.push({
     status,
     updatedBy: "ADMIN",
   });
 
+  if (status === RETURN_REQUEST_STATUSES.RETURN_APPROVED) {
+    const refundAmount = calculateItemRefund({
+      order,
+      item,
+      operation: "RETURN",
+    });
 
- if (status === RETURN_REQUEST_STATUSES.RETURN_APPROVED) {
-   const refundAmount = calculateItemRefund({
-     order,
-     item,
-     operation: "RETURN",
-   });
-
-   returnRequest.refundAmount = refundAmount;
- }
-
-if (status === RETURN_REQUEST_STATUSES.RETURN_COMPLETED) {
-  if (returnRequest.refundStatus === "COMPLETED") {
-    throw new AppError("Refund already processed", HTTP_STATUS.BAD_REQUEST);
+    returnRequest.refundAmount = refundAmount;
   }
 
-  await creditWallet({
-    userId: returnRequest.user,
-    amount: returnRequest.refundAmount,
-    reason: "RETURN_REFUND",
-    description: `Refund for returned item ${returnRequest.itemSnapshot.name}`,
-    referenceId: returnRequest._id,
-  });
+  if (status === RETURN_REQUEST_STATUSES.RETURN_COMPLETED) {
+    if (returnRequest.refundStatus === "COMPLETED") {
+      throw new AppError("Refund already processed", HTTP_STATUS.BAD_REQUEST);
+    }
 
-  returnRequest.refundStatus = "COMPLETED";
-  returnRequest.resolvedAt = new Date();
+    await creditWallet({
+      userId: returnRequest.user,
+      amount: returnRequest.refundAmount,
+      reason: "RETURN_REFUND",
+      description: `Refund for returned item ${returnRequest.itemSnapshot.name}`,
+      referenceId: returnRequest._id,
+    });
 
-  item.refundAmount = returnRequest.refundAmount;
-  item.refundStatus = "COMPLETED";
+    returnRequest.refundStatus = "COMPLETED";
+    returnRequest.resolvedAt = new Date();
 
-  await Variant.updateOne(
-    { _id: item.variantId },
-    {
-      $inc: {
-        stock: item.quantity,
+    item.refundAmount = returnRequest.refundAmount;
+    item.refundStatus = "COMPLETED";
+
+    await Variant.updateOne(
+      { _id: item.variantId },
+      {
+        $inc: {
+          stock: item.quantity,
+        },
       },
-    },
-  );
-}
+    );
 
 
-    await order.save();
-    await returnRequest.save();
+    const remainingActiveItems = order.items.filter(
+      (i) => i._id.toString() !== item._id.toString() && !["CANCELLED", "RETURN_COMPLETED"].includes(i.itemStatus)
+    );
+
+    if (remainingActiveItems.length === 0) {
+      await handleCouponRestoration(order);
+      console.log(`[Coupon Restored] Last item returned. Reverted usedCount for order: ${order.orderNumber}`);
+    }
+  }
+
+  // Recalculate macro order status cleanly
+  const newOrderStatus = recalculateOrderStatus(order.items);
+  if (newOrderStatus) {
+    order.orderStatus = newOrderStatus;
+    order.statusHistory.push({
+      status: newOrderStatus,
+      updatedBy: "ADMIN"
+    });
+  }
+
+  await order.save();
+  await returnRequest.save();
 
   return {
     message: "Return status updated successfully",
@@ -183,14 +316,29 @@ if (status === RETURN_REQUEST_STATUSES.RETURN_COMPLETED) {
 export const getReturnRequestDetailsService = async (returnId) => {
   const returnRequest = await ReturnRequest.findById(returnId)
   .populate("user", "fullName email")
- .populate("order", "orderNumber createdAt paymentMethod paymentStatus");
+ .populate("order", "orderNumber createdAt paymentMethod paymentStatus items")
+ .lean()
 
    if (!returnRequest) {
      throw new AppError("Return request not found", HTTP_STATUS.NOT_FOUND);
    }
+   const specificItem = returnRequest.order?.items?.find(
+     (item) => item._id.toString() === returnRequest.orderItemId?.toString(),
+   );
+
+const salePrice= specificItem?.salePrice || 0
+const couponDiscount= specificItem?.couponDiscount || 0
+   console.log("Specific item", specificItem)
 
   return {
     message: "Return request details fetched successfully",
-    data: returnRequest,
+    data: {
+      ...returnRequest,
+      itemSnapshot :{
+        ...returnRequest.itemSnapshot,
+        salePrice,
+        couponDiscount,
+      }
+    },
   };
 };

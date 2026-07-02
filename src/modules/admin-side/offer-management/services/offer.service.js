@@ -253,6 +253,7 @@ export const getOfferDetailsService = async (offerId) => {
 
 // Update offer
 export const updateOfferService = async (offerId, payload) => {
+  console.log("offerUpdate: ", payload)
   const offer = await Offer.findOne({
     _id: offerId,
     isDeleted: false,

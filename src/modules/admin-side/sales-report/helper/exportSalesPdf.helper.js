@@ -6,9 +6,8 @@ export const exportSalesPdf = (report, filters = {}) => {
     const orders = report?.orders || [];
     const { type, startDate, endDate } = filters;
 
-    // Create a landscape A4 document to fit all columns comfortably
     const doc = new PDFDocument({
-      margin: 30, // Relaxed margins to expand layout breathing room
+      margin: 30,
       size: "A4",
       layout: "landscape",
       bufferPages: true,
@@ -19,40 +18,51 @@ export const exportSalesPdf = (report, filters = {}) => {
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 
-    // ==========================================
-    // CONFIGURATIONS & LAYOUT CONSTANTS
-    // ==========================================
+
+    // LAYOUT CONSTANTS
+
     const PAGE_WIDTH = doc.page.width;
     const PAGE_HEIGHT = doc.page.height;
     const MARGIN = 30;
-    const USABLE_WIDTH = PAGE_WIDTH - MARGIN * 2; // Expanded to 781 points
+    const USABLE_WIDTH = PAGE_WIDTH - MARGIN * 2;
 
-    // Explicit table column widths summing up exactly to USABLE_WIDTH (781 pt)
     const colWidths = {
-      orderNo: 75,
-      customer: 105,
-      date: 65,
-      items: 45,
-      gross: 75,
-      offer: 75,
-      coupon: 75,
-      net: 80,
-      payment: 90,
-      status: 96,
+      orderNo: 60,
+      customer: 85,
+      date: 55,
+      orderedQty: 40,
+      cancelledQty: 40,
+      returnedQty: 40,
+      gross: 70,
+      offer: 65,
+      coupon: 65,
+      refundedAmt: 70,
+      net: 70,
+      payment: 62,
+      status: 60,
     };
 
-    // Calculate X offsets dynamically based on sequential column widths
-    const colX = { orderNo: MARGIN };
+    const colX = {};
     let currentX = MARGIN;
-    const keys = Object.keys(colWidths);
-    for (let i = 0; i < keys.length - 1; i++) {
-      currentX += colWidths[keys[i]];
-      colX[keys[i + 1]] = currentX;
-    }
+    Object.keys(colWidths).forEach((key) => {
+      colX[key] = currentX;
+      currentX += colWidths[key];
+    });
 
-    // ==========================================
+    // Dynamic accumulators
+    const runningTotals = {
+      orderedQty: 0,
+      cancelledQty: 0,
+      returnedQty: 0,
+      gross: 0,
+      offer: 0,
+      coupon: 0,
+      refundedAmt: 0,
+      net: 0,
+    };
+
+
     // HELPER FUNCTIONS FOR RENDERING
-    // ==========================================
 
     const drawHeaderBlock = () => {
       doc
@@ -77,40 +87,36 @@ export const exportSalesPdf = (report, filters = {}) => {
       doc.text(`Reporting Period: ${periodText}`, MARGIN, 72);
     };
 
-    const drawSummaryGrid = () => {
+
+    const drawSummaryGrid = (calculatedTotals) => {
       const topY = 95;
       const boxWidth = 118;
       const boxHeight = 45;
       const spacing = 12;
 
       const kpiItems = [
+        { label: "Total Orders", val: orders.length, isCurrency: false },
         {
-          label: "Total Orders",
-          val: summary.overallSalesCount ?? 0,
+          label: "Items Sold (Net)",
+          val: summary.itemsSold ?? calculatedTotals.orderedQty,
           isCurrency: false,
         },
-        { label: "Items Sold", val: summary.itemsSold ?? 0, isCurrency: false },
-        {
-          label: "Gross Sales",
-          val: summary.grossSales ?? 0,
-          isCurrency: true,
-        },
+        { label: "Gross Sales", val: calculatedTotals.gross, isCurrency: true },
         {
           label: "Offer Discount",
-          val: summary.offerDiscount ?? 0,
+          val: calculatedTotals.offer,
           isCurrency: true,
         },
         {
           label: "Coupon Discount",
-          val: summary.couponDiscount ?? 0,
+          val: calculatedTotals.coupon,
           isCurrency: true,
         },
-        { label: "Net Sales", val: summary.netSales ?? 0, isCurrency: true },
+        { label: "Net Sales", val: calculatedTotals.net, isCurrency: true }, // ✅ Perfectly balanced
       ];
 
       kpiItems.forEach((kpi, idx) => {
         const x = MARGIN + idx * (boxWidth + spacing);
-
         doc
           .rect(x, topY, boxWidth, boxHeight)
           .fillAndStroke("#F8FAFC", "#E2E8F0");
@@ -120,130 +126,224 @@ export const exportSalesPdf = (report, filters = {}) => {
           .fontSize(8)
           .text(kpi.label.toUpperCase(), x + 8, topY + 10);
 
-        // ✅ Using global 'INR' standard syntax safely to display across all PDF engines cleanly
         const textVal = kpi.isCurrency
-          ? `INR ${Number(kpi.val).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
+          ? `Rs. ${Number(kpi.val).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
           : String(kpi.val);
 
         doc
           .fillColor("#0F172A")
           .font("Helvetica-Bold")
-          .fontSize(10.5)
+          .fontSize(10)
           .text(textVal, x + 8, topY + 24);
       });
     };
 
     const drawTableHeader = (y) => {
-      doc.rect(MARGIN, y, USABLE_WIDTH, 22).fill("#1E3A8A");
-      doc.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(9);
+      doc.rect(MARGIN, y, USABLE_WIDTH, 24).fill("#1E3A8A");
+      doc.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(7.5);
 
       const headers = [
         { label: "Order No", key: "orderNo", align: "center" },
         { label: "Customer", key: "customer", align: "left" },
         { label: "Date", key: "date", align: "center" },
-        { label: "Items", key: "items", align: "center" },
-        { label: "Gross", key: "gross", align: "right" },
+        { label: "Ord Qty", key: "orderedQty", align: "center" },
+        { label: "Can Qty", key: "cancelledQty", align: "center" },
+        { label: "Ret Qty", key: "returnedQty", align: "center" },
+        { label: "Gross Sub", key: "gross", align: "right" },
         { label: "Offer Disc", key: "offer", align: "right" },
-        { label: "Coupon Disc", key: "coupon", align: "right" },
+        { label: "Cpn Disc", key: "coupon", align: "right" },
+        { label: "Refunded", key: "refundedAmt", align: "right" },
         { label: "Net Total", key: "net", align: "right" },
         { label: "Payment", key: "payment", align: "center" },
         { label: "Status", key: "status", align: "center" },
       ];
 
       headers.forEach((h) => {
-        doc.text(h.label, colX[h.key], y + 6, {
-          width: colWidths[h.key],
+        const paddingX = h.align === "right" ? 4 : 0;
+        doc.text(h.label, colX[h.key], y + 8, {
+          width: colWidths[h.key] - paddingX,
           align: h.align,
         });
       });
     };
 
-    // ==========================================
-    // INITIAL SETUP
-    // ==========================================
+
+    // INITIAL SETUP & PROCESSING 
+
     drawHeaderBlock();
-    drawSummaryGrid();
+
+    orders.forEach((order) => {
+      const orderedQty =
+        order.items?.reduce((t, item) => t + (Number(item.quantity) || 0), 0) ||
+        0;
+      const cancelledQty =
+        order.items?.reduce(
+          (t, item) =>
+            item.itemStatus === "CANCELLED"
+              ? t + (Number(item.quantity) || 0)
+              : t,
+          0,
+        ) || 0;
+      const returnedQty =
+        order.items?.reduce(
+          (t, item) =>
+            ["RETURN_COMPLETED", "RETURNED"].includes(item.itemStatus)
+              ? t + (Number(item.quantity) || 0)
+              : t,
+          0,
+        ) || 0;
+
+      const grossNum = Number(order.subtotal) || 0;
+      const offerNum = Number(order.discount) || 0;
+      const couponNum = Number(order.coupon?.discountAmount) || 0;
+      const refundedAmtNum =
+        order.items?.reduce(
+          (acc, item) => acc + (Number(item.refundAmount) || 0),
+          0,
+        ) || 0;
+
+
+      const netNum = Math.max(
+        0,
+        (Number(order.totalAmount) || 0) - refundedAmtNum,
+      );
+
+      runningTotals.orderedQty += orderedQty;
+      runningTotals.cancelledQty += cancelledQty;
+      runningTotals.returnedQty += returnedQty;
+      runningTotals.gross += grossNum;
+      runningTotals.offer += offerNum;
+      runningTotals.coupon += couponNum;
+      runningTotals.refundedAmt += refundedAmtNum;
+      runningTotals.net += netNum;
+    });
+
+
+    drawSummaryGrid(runningTotals);
 
     let currentY = 160;
     drawTableHeader(currentY);
-    currentY += 22;
+    currentY += 24;
 
-    // ==========================================
-    // TRANSACTIONS PROCESSING LOOP
-    // ==========================================
+
+    // TRANSACTIONS PRINTING LOOP
+
     orders.forEach((order, index) => {
-      const itemsCount =
+      const orderedQty =
         order.items?.reduce((t, item) => t + (Number(item.quantity) || 0), 0) ||
         0;
+      const cancelledQty =
+        order.items?.reduce(
+          (t, item) =>
+            item.itemStatus === "CANCELLED"
+              ? t + (Number(item.quantity) || 0)
+              : t,
+          0,
+        ) || 0;
+      const returnedQty =
+        order.items?.reduce(
+          (t, item) =>
+            ["RETURN_COMPLETED", "RETURNED"].includes(item.itemStatus)
+              ? t + (Number(item.quantity) || 0)
+              : t,
+          0,
+        ) || 0;
+
       const orderNo = order.orderNumber ? String(order.orderNumber) : "-";
       const customer = order.user?.fullName || "-";
       const dateStr = order.createdAt
         ? new Date(order.createdAt).toLocaleDateString("en-IN")
         : "-";
 
-      const gross = (Number(order.subtotal) || 0).toFixed(2);
-      const offer = (Number(order.discount) || 0).toFixed(2);
-      const coupon = (Number(order.coupon?.discountAmount) || 0).toFixed(2);
-      const net = (Number(order.totalAmount) || 0).toFixed(2);
+      const grossNum = Number(order.subtotal) || 0;
+      const offerNum = Number(order.discount) || 0;
+      const couponNum = Number(order.coupon?.discountAmount) || 0;
+      const refundedAmtNum =
+        order.items?.reduce(
+          (acc, item) => acc + (Number(item.refundAmount) || 0),
+          0,
+        ) || 0;
+      const netNum = Math.max(
+        0,
+        (Number(order.totalAmount) || 0) - refundedAmtNum,
+      );
 
       const payment = order.paymentMethod || "-";
       const status = order.orderStatus || "-";
 
-      doc.font("Helvetica").fontSize(8);
+      doc.font("Helvetica").fontSize(7.5);
 
       const orderNoHeight = doc.heightOfString(orderNo, {
         width: colWidths.orderNo,
       });
       const customerHeight = doc.heightOfString(customer, {
-        width: colWidths.customer - 6,
+        width: colWidths.customer - 4,
       });
-      const rowHeight = Math.max(orderNoHeight, customerHeight, 14) + 12;
+      const rowHeight = Math.max(orderNoHeight, customerHeight, 14) + 10;
 
       const BOTTOM_SAFETY_MARGIN = 50;
       if (currentY + rowHeight > PAGE_HEIGHT - BOTTOM_SAFETY_MARGIN) {
         doc.addPage();
         currentY = MARGIN;
         drawTableHeader(currentY);
-        currentY += 22;
+        currentY += 24;
       }
 
       if (index % 2 === 1) {
         doc.rect(MARGIN, currentY, USABLE_WIDTH, rowHeight).fill("#F9FAFB");
       }
 
-      const textPaddingTop = (rowHeight - 8) / 2;
-
+      const textPaddingTop = (rowHeight - 7.5) / 2;
       doc.fillColor("#334155");
+
       doc.text(orderNo, colX.orderNo, currentY + textPaddingTop, {
         width: colWidths.orderNo,
         align: "center",
       });
-      doc.text(customer, colX.customer + 4, currentY + textPaddingTop, {
-        width: colWidths.customer - 6,
+      doc.text(customer, colX.customer + 2, currentY + textPaddingTop, {
+        width: colWidths.customer - 4,
         align: "left",
       });
       doc.text(dateStr, colX.date, currentY + textPaddingTop, {
         width: colWidths.date,
         align: "center",
       });
-      doc.text(String(itemsCount), colX.items, currentY + textPaddingTop, {
-        width: colWidths.items,
+      doc.text(String(orderedQty), colX.orderedQty, currentY + textPaddingTop, {
+        width: colWidths.orderedQty,
         align: "center",
       });
+      doc.text(
+        String(cancelledQty),
+        colX.cancelledQty,
+        currentY + textPaddingTop,
+        { width: colWidths.cancelledQty, align: "center" },
+      );
+      doc.text(
+        String(returnedQty),
+        colX.returnedQty,
+        currentY + textPaddingTop,
+        { width: colWidths.returnedQty, align: "center" },
+      );
 
-      doc.text(gross, colX.gross, currentY + textPaddingTop, {
+      doc.text(grossNum.toFixed(2), colX.gross, currentY + textPaddingTop, {
         width: colWidths.gross - 4,
         align: "right",
       });
-      doc.text(offer, colX.offer, currentY + textPaddingTop, {
+      doc.text(offerNum.toFixed(2), colX.offer, currentY + textPaddingTop, {
         width: colWidths.offer - 4,
         align: "right",
       });
-      doc.text(coupon, colX.coupon, currentY + textPaddingTop, {
+      doc.text(couponNum.toFixed(2), colX.coupon, currentY + textPaddingTop, {
         width: colWidths.coupon - 4,
         align: "right",
       });
-      doc.text(net, colX.net, currentY + textPaddingTop, {
+      doc.text(
+        refundedAmtNum.toFixed(2),
+        colX.refundedAmt,
+        currentY + textPaddingTop,
+        { width: colWidths.refundedAmt - 4, align: "right" },
+      );
+      doc.text(netNum.toFixed(2), colX.net, currentY + textPaddingTop, {
         width: colWidths.net - 4,
         align: "right",
       });
@@ -267,51 +367,68 @@ export const exportSalesPdf = (report, filters = {}) => {
       currentY += rowHeight;
     });
 
-    // ==========================================
+
     // TOTALS ROW
-    // ==========================================
+
     if (currentY + 22 > PAGE_HEIGHT - 50) {
       doc.addPage();
       currentY = MARGIN;
       drawTableHeader(currentY);
-      currentY += 22;
+      currentY += 24;
     }
 
     doc.rect(MARGIN, currentY, USABLE_WIDTH, 22).fill("#F1F5F9");
-    doc.fillColor("#0F172A").font("Helvetica-Bold").fontSize(8.5);
+    doc.fillColor("#0F172A").font("Helvetica-Bold").fontSize(7.5);
 
-    doc.text("TOTALS", colX.orderNo + 4, currentY + 6, {
+    doc.text("TOTALS", colX.orderNo + 4, currentY + 7, {
       width: colWidths.orderNo,
       align: "left",
     });
-    doc.text(String(summary.itemsSold || 0), colX.items, currentY + 6, {
-      width: colWidths.items,
+    doc.text(String(runningTotals.orderedQty), colX.orderedQty, currentY + 7, {
+      width: colWidths.orderedQty,
       align: "center",
     });
     doc.text(
-      (Number(summary.grossSales) || 0).toFixed(2),
+      String(runningTotals.cancelledQty),
+      colX.cancelledQty,
+      currentY + 7,
+      { width: colWidths.cancelledQty, align: "center" },
+    );
+    doc.text(
+      String(runningTotals.returnedQty),
+      colX.returnedQty,
+      currentY + 7,
+      { width: colWidths.returnedQty, align: "center" },
+    );
+
+    doc.text(
+      `Rs. ${runningTotals.gross.toFixed(2)}`,
       colX.gross,
-      currentY + 6,
+      currentY + 7,
       { width: colWidths.gross - 4, align: "right" },
     );
     doc.text(
-      (Number(summary.offerDiscount) || 0).toFixed(2),
+      `Rs. ${runningTotals.offer.toFixed(2)}`,
       colX.offer,
-      currentY + 6,
+      currentY + 7,
       { width: colWidths.offer - 4, align: "right" },
     );
     doc.text(
-      (Number(summary.couponDiscount) || 0).toFixed(2),
+      `Rs. ${runningTotals.coupon.toFixed(2)}`,
       colX.coupon,
-      currentY + 6,
+      currentY + 7,
       { width: colWidths.coupon - 4, align: "right" },
     );
     doc.text(
-      (Number(summary.netSales) || 0).toFixed(2),
-      colX.net,
-      currentY + 6,
-      { width: colWidths.net - 4, align: "right" },
+      `Rs. ${runningTotals.refundedAmt.toFixed(2)}`,
+      colX.refundedAmt,
+      currentY + 7,
+      { width: colWidths.refundedAmt - 4, align: "right" },
     );
+    doc.text(`Rs. ${runningTotals.net.toFixed(2)}`, colX.net, currentY + 7, {
+      width: colWidths.net - 4,
+      align: "right",
+    });
 
     doc
       .moveTo(MARGIN, currentY)
@@ -326,13 +443,12 @@ export const exportSalesPdf = (report, filters = {}) => {
       .lineWidth(1.5)
       .stroke();
 
-    // ==========================================
+
     // FOOTER
-    // ==========================================
+
     const range = doc.bufferedPageRange();
     for (let i = range.start; i < range.start + range.count; i++) {
       doc.switchToPage(i);
-
       doc
         .moveTo(MARGIN, PAGE_HEIGHT - 30)
         .lineTo(PAGE_WIDTH - MARGIN, PAGE_HEIGHT - 30)

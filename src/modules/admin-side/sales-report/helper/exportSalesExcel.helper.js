@@ -9,80 +9,105 @@ export const exportSalesExcel = async (report, filters = {}) => {
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet("Sales Report");
 
-  // Title Block
-  worksheet.mergeCells("A1:J1");
+
+  worksheet.mergeCells("A1:N1");
   const title = worksheet.getCell("A1");
   title.value = "GeekCart Sales Report";
   title.font = { size: 18, bold: true, color: { argb: "FF1E293B" } };
   title.alignment = { horizontal: "center", vertical: "middle" };
   worksheet.getRow(1).height = 30;
 
-  // ==========================
-  // Summary Grid Section (Updated)
-  // ==========================
+
+  // Table Rows Calculation
+
+  const startRowIndex = 10;
+  const endRowIndex =
+    startRowIndex + (orders.length > 0 ? orders.length - 1 : 0);
+  const totalsRowIndex = endRowIndex + 1; // 🏆 Dynamic row pointer where the bottom totals are located
+
+
+  // Summary Grid
+
   worksheet.getCell("A3").value = "Generated On";
   worksheet.getCell("B3").value = new Date().toLocaleString("en-IN");
 
-  // ✅ NEW: Calculate and display the Reporting Date Filter dynamically
   worksheet.getCell("A4").value = "Reporting Period";
-
   if (type === "custom" && startDate && endDate) {
     const start = new Date(startDate).toLocaleDateString("en-IN");
     const end = new Date(endDate).toLocaleDateString("en-IN");
     worksheet.getCell("B4").value = `${start} to ${end}`;
   } else {
-    // Capitalize filter type string safely (e.g., "monthly" -> "Monthly")
     worksheet.getCell("B4").value = type
       ? type.charAt(0).toUpperCase() + type.slice(1)
       : "All Time";
   }
 
-  // Shift previous summary parameters down safely by 1 row index
   worksheet.getCell("A5").value = "Total Orders";
   worksheet.getCell("B5").value = summary.overallSalesCount ?? 0;
 
-  worksheet.getCell("A6").value = "Items Sold";
-  worksheet.getCell("B6").value = summary.itemsSold ?? 0;
+  worksheet.getCell("A6").value = "Items Sold (Net)";
+  worksheet.getCell("B6").value = {
+    formula:
+      orders.length > 0 ? `=SUM(D${startRowIndex}:D${endRowIndex})` : "0",
+    result: summary.itemsSold ?? 0,
+  };
 
   worksheet.getCell("A7").value = "Gross Sales";
-  worksheet.getCell("B7").value = Number(summary.grossSales || 0);
+  worksheet.getCell("B7").value = {
+    formula:
+      orders.length > 0 ? `=SUM(G${startRowIndex}:G${endRowIndex})` : "0",
+    result: Number(summary.grossSales || 0),
+  };
 
   worksheet.getCell("D5").value = "Offer Discount";
-  worksheet.getCell("E5").value = Number(summary.offerDiscount || 0);
+  worksheet.getCell("E5").value = {
+    formula:
+      orders.length > 0 ? `=SUM(H${startRowIndex}:H${endRowIndex})` : "0",
+    result: Number(summary.offerDiscount || 0),
+  };
 
   worksheet.getCell("D6").value = "Coupon Discount";
-  worksheet.getCell("E6").value = Number(summary.couponDiscount || 0);
+  worksheet.getCell("E6").value = {
+    formula:
+      orders.length > 0 ? `=SUM(I${startRowIndex}:I${endRowIndex})` : "0",
+    result: Number(summary.couponDiscount || 0),
+  };
+
 
   worksheet.getCell("D7").value = "Net Sales";
-  worksheet.getCell("E7").value = Number(summary.netSales || 0);
+  worksheet.getCell("E7").value = {
+    formula: orders.length > 0 ? `=K${totalsRowIndex}` : "0",
+    result: orders.length > 0 ? undefined : 0,
+  };
 
-  // Update Summary Label Bold Targets (A3 through D7)
   ["A3", "A4", "A5", "A6", "A7", "D5", "D6", "D7"].forEach((cell) => {
     worksheet.getCell(cell).font = { bold: true, color: { argb: "FF475569" } };
   });
 
-  // Update Currency Format mappings
   ["B7", "E5", "E6", "E7"].forEach((cell) => {
     worksheet.getCell(cell).numFmt = "₹#,##0.00";
   });
 
-  // ==========================
-  // Table Header (Shifted down to Row 9)
-  // ==========================
-  worksheet.addRow([]); // Blank spacing row 8
+
+  // Table Header
+  
+  worksheet.addRow([]);
 
   const headerRow = worksheet.addRow([
     "Order No",
     "Customer",
     "Date",
-    "Items",
-    "Gross",
+    "Ordered Qty",
+    "Cancelled Qty",
+    "Returned Qty",
+    "Gross Subtotal",
     "Offer Discount",
     "Coupon Discount",
+    "Refunded Amt",
     "Net Total",
     "Payment",
     "Status",
-  ]); // Header is now Row 9
+  ]);
   headerRow.height = 24;
 
   headerRow.eachCell((cell) => {
@@ -95,20 +120,43 @@ export const exportSalesExcel = async (report, filters = {}) => {
     cell.alignment = { horizontal: "center", vertical: "middle" };
   });
 
-  // Freeze summary updated to split at row 9
   worksheet.views = [{ state: "frozen", ySplit: 9 }];
-  worksheet.autoFilter = { from: "A9", to: "J9" };
+  worksheet.autoFilter = { from: "A9", to: "M9" };
 
-  // ==========================
-  // Populate Transactional Rows (Starts at 10)
-  // ==========================
-  const startRowIndex = 10;
+
+  // Transactional Rows
+
   orders.forEach((order) => {
-    const totalItemsInOrder =
+    const totalOrderedQty =
       order.items?.reduce(
-        (total, item) => total + (Number(item.quantity) || 0),
+        (acc, item) => acc + (Number(item.quantity) || 0),
         0,
       ) || 0;
+
+    const totalCancelledQty =
+      order.items?.reduce((acc, item) => {
+        return item.itemStatus === "CANCELLED"
+          ? acc + (Number(item.quantity) || 0)
+          : acc;
+      }, 0) || 0;
+
+    const totalReturnedQty =
+      order.items?.reduce((acc, item) => {
+        return ["RETURN_COMPLETED", "RETURNED"].includes(item.itemStatus)
+          ? acc + (Number(item.quantity) || 0)
+          : acc;
+      }, 0) || 0;
+
+    const totalRefundedAmt =
+      order.items?.reduce(
+        (acc, item) => acc + (Number(item.refundAmount) || 0),
+        0,
+      ) || 0;
+
+    const computedNetTotal = Math.max(
+      0,
+      Number(order.totalAmount || 0) - totalRefundedAmt,
+    );
 
     worksheet.addRow([
       order.orderNumber ? String(order.orderNumber) : "-",
@@ -116,53 +164,60 @@ export const exportSalesExcel = async (report, filters = {}) => {
       order.createdAt
         ? new Date(order.createdAt).toLocaleDateString("en-IN")
         : "-",
-      totalItemsInOrder,
+      totalOrderedQty,
+      totalCancelledQty,
+      totalReturnedQty,
       Number(order.subtotal || 0),
       Number(order.discount || 0),
       Number(order.coupon?.discountAmount || 0),
-      Number(order.totalAmount || 0),
+      totalRefundedAmt,
+      computedNetTotal,
       order.paymentMethod || "-",
       order.orderStatus || "-",
     ]);
   });
 
-  const endRowIndex = worksheet.lastRow
-    ? worksheet.lastRow.number
-    : startRowIndex;
 
-  // ==========================
-  // Dynamic Totals Row Updates
-  // ==========================
+  // Totals Row
+
   const totalRow = worksheet.addRow([
     "TOTALS",
     "",
     "",
     {
       formula: `=SUM(D${startRowIndex}:D${endRowIndex})`,
-      result: summary.itemsSold || 0,
+      result: summary.totalOrdered || 0,
     },
     {
       formula: `=SUM(E${startRowIndex}:E${endRowIndex})`,
-      result: summary.grossSales || 0,
+      result: summary.totalCancelled || 0,
     },
     {
       formula: `=SUM(F${startRowIndex}:F${endRowIndex})`,
-      result: summary.offerDiscount || 0,
+      result: summary.totalReturned || 0,
     },
     {
       formula: `=SUM(G${startRowIndex}:G${endRowIndex})`,
-      result: summary.couponDiscount || 0,
+      result: summary.grossSales || 0,
     },
     {
       formula: `=SUM(H${startRowIndex}:H${endRowIndex})`,
-      result: summary.netSales || 0,
+      result: summary.offerDiscount || 0,
     },
+    {
+      formula: `=SUM(I${startRowIndex}:I${endRowIndex})`,
+      result: summary.couponDiscount || 0,
+    },
+    {
+      formula: `=SUM(J${startRowIndex}:J${endRowIndex})`,
+      result: summary.totalRefunded || 0,
+    },
+    { formula: `=SUM(K${startRowIndex}:K${endRowIndex})` }, // Let Excel engine evaluate true column runtime weight
     "",
     "",
   ]);
   totalRow.height = 22;
 
-  // Style totals row
   totalRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
     cell.font = { bold: true, size: 11, color: { argb: "FF0F172A" } };
     cell.border = {
@@ -171,15 +226,21 @@ export const exportSalesExcel = async (report, filters = {}) => {
       left: { style: "thin", color: { argb: "FFD3D3D3" } },
       right: { style: "thin", color: { argb: "FFD3D3D3" } },
     };
-    if ([4, 5, 6, 7, 8].includes(colNumber)) {
+
+    if ([4, 5, 6].includes(colNumber)) {
+      cell.numFmt = "#,##0";
+      cell.alignment = { horizontal: "center" };
+    }
+
+    if ([7, 8, 9, 10, 11].includes(colNumber)) {
       cell.numFmt = "₹#,##0.00";
       cell.alignment = { horizontal: "right" };
     }
   });
 
-  // ==========================
-  // Grid Formatting Range Adjustment
-  // ==========================
+
+  // Layout 
+
   worksheet.eachRow((row, rowNumber) => {
     if (rowNumber >= startRowIndex && rowNumber <= endRowIndex) {
       const isEven = rowNumber % 2 === 0;
@@ -188,13 +249,13 @@ export const exportSalesExcel = async (report, filters = {}) => {
           cell.fill = {
             type: "pattern",
             pattern: "solid",
-            fgColor: { argb: "F9FAFB" },
+            fgColor: { argb: "FFF9FAFB" },
           };
         }
-        if ([1, 3, 4, 9, 10].includes(colNumber)) {
+        if ([1, 3, 4, 5, 6, 12, 13].includes(colNumber)) {
           cell.alignment = { horizontal: "center", vertical: "middle" };
         }
-        if ([5, 6, 7, 8].includes(colNumber)) {
+        if ([7, 8, 9, 10, 11].includes(colNumber)) {
           cell.numFmt = "₹#,##0.00";
           cell.alignment = { horizontal: "right", vertical: "middle" };
         }
@@ -208,11 +269,11 @@ export const exportSalesExcel = async (report, filters = {}) => {
     }
   });
 
-  // ==========================
-  // Auto Width Calculation
-  // ==========================
+
+  // Auto Width
+
   worksheet.columns.forEach((column) => {
-    let maxLength = 16; // Bumped slightly to display longer date ranges clearly
+    let maxLength = 16;
     column.eachCell({ includeEmpty: false }, (cell) => {
       const textValue =
         cell.value && typeof cell.value === "object" && cell.value.formula

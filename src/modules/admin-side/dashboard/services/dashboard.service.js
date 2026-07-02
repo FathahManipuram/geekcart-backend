@@ -7,82 +7,62 @@ import { getTopProduct } from "../helper/topProduct.js";
 import { getTopSubcategories } from "../helper/topSubcategories.js";
 
 
+export const getDashboardService = async ({ type = "monthly" } = {}) => {
 
-export const getDashboardService = async () => {
+  const [
+    totalUsers,
+    activeUsers,
+    totalCategories,
+    totalSubcategories,
+    subcategoryBreakdown,
+    userGrowthData,
+    salesChart,
+    topProducts,
+    topSubcategories,
+    sample,
+  ] = await Promise.all([
+    User.countDocuments({ isVerified: true, role: "user" }),
+    User.countDocuments({ isVerified: true, isBlocked: false, role: "user" }),
+    Category.countDocuments({ isDeleted: false }),
+    Subcategory.countDocuments({ isDeleted: false }),
 
-  const [totalUsers, activeUsers, totalCategories, totalSubcategories] =
-    await Promise.all([
-      User.countDocuments({
-        isVerified: true,
-        role: "user",
-      }),
-
-      User.countDocuments({
-        isVerified: true,
-        isBlocked: false,
-        role: "user",
-      }),
-
-      Category.countDocuments({
-        isDeleted: false,
-      }),
-
-      Subcategory.countDocuments({
-        isDeleted: false,
-      }),
-    ]);
-
-  const subcategoryBreakdown = await Subcategory.aggregate([
-    {
-      $match: {
-        isDeleted: false,
-      },
-    },
-    {
-      $lookup: {
-        from: "products",
-        localField: "_id",
-        foreignField: "subcategory",
-        as: "products1",
-      },
-    },
-    {
-      $project: {
-        name: 1,
-        count: {
-          $size: "$products1",
+    Subcategory.aggregate([
+      { $match: { isDeleted: false } },
+      {
+        $lookup: {
+          from: "products",
+          localField: "_id",
+          foreignField: "subcategory",
+          as: "products1",
         },
       },
-    },
-  ]);
-
-  const userGrowth = await User.aggregate([
-    {
-      $match: {
-        isVerified: true,
-        role: "user",
-      },
-    },
-
-    {
-      $group: {
-        _id: {
-          year: { $year: "$createdAt" },
-          month: { $month: "$createdAt" },
-        },
-
-        users: {
-          $sum: 1,
+      {
+        $project: {
+          name: 1,
+          count: { $size: { $ifNull: ["$products1", []] } },
         },
       },
-    },
+    ]),
 
-    {
-      $sort: {
-        "_id.year": 1,
-        "_id.month": 1,
+    User.aggregate([
+      { $match: { isVerified: true, role: "user" } },
+      {
+        $group: {
+          _id: {
+            year: { $year: "$createdAt" },
+            month: { $month: "$createdAt" },
+          },
+          users: { $sum: 1 },
+        },
       },
-    },
+      { $sort: { "_id.year": 1, "_id.month": 1 } },
+    ]),
+
+
+    getSalesChart(type),
+    getTopProduct(type),
+    getTopSubcategories(type),
+    getDataSample(),
   ]);
 
   const months = [
@@ -99,16 +79,22 @@ export const getDashboardService = async () => {
     "Nov",
     "Dec",
   ];
-  const formattedUserGrowth = userGrowth.map((item) => ({
-    month: months[item._id.month - 1],
-    users: item.users,
-  }));
+  const currentYear = new Date().getFullYear();
 
-  const salesChart = await getSalesChart();
-  const topProducts = await getTopProduct();
-  const topSubcategories = await getTopSubcategories();
 
-  const sample= await getDataSample()
+  const formattedUserGrowth = userGrowthData.map((item) => {
+    const monthName = months[item._id.month - 1];
+
+    const label =
+      item._id.year === currentYear
+        ? monthName
+        : `${monthName} ${String(item._id.year).slice(-2)}`;
+
+    return {
+      month: label,
+      users: item.users,
+    };
+  });
 
   return {
     message: "Dashboard fetched successfully",
@@ -119,7 +105,6 @@ export const getDashboardService = async () => {
         totalCategories,
         totalSubcategories,
       },
-
       subcategoryBreakdown,
       userGrowth: formattedUserGrowth,
       salesChart,
@@ -128,4 +113,4 @@ export const getDashboardService = async () => {
       sample,
     },
   };
-}
+};

@@ -39,12 +39,13 @@ export const createCouponSchema = Joi.object({
       "number.positive": "Discount value must be greater than 0.",
     }),
 
-  minOrderAmount: Joi.number().min(0).default(0).messages({
+  minOrderAmount: Joi.number().min(0).allow("", null).messages({
     "number.min": "Minimum order amount cannot be negative.",
   }),
 
   maxDiscountAmount: Joi.number()
     .min(0)
+    .allow(null, "")
     .when("discountType", {
       is: "PERCENTAGE",
       then: Joi.number().greater(0).required().messages({
@@ -53,13 +54,19 @@ export const createCouponSchema = Joi.object({
         "number.greater":
           "Maximum discount cap must be greater than 0 for percentage offers.",
       }),
-      otherwise: Joi.allow(null),
+      otherwise: Joi.allow(null, ""),
     }),
 
-  usageLimit: Joi.number().integer().positive().required().messages({
-    "number.integer": "Global usage limit must be a whole number.",
-    "number.positive": "Global usage limit must be at least 1.",
-  }),
+
+  usageLimit: Joi.number()
+    .integer()
+    .positive()
+    .allow(null, "")
+    .optional()
+    .messages({
+      "number.integer": "Global usage limit must be a whole number.",
+      "number.positive": "Global usage limit must be at least 1.",
+    }),
 
   perUserLimit: Joi.number()
     .integer()
@@ -73,7 +80,6 @@ export const createCouponSchema = Joi.object({
           "Per user limit cannot exceed the global usage limit.",
         );
       }
-
       return value;
     })
     .messages({
@@ -95,7 +101,6 @@ export const createCouponSchema = Joi.object({
       if (startDate < today) {
         return helpers.message("Start date cannot be set in the past.");
       }
-
       return value;
     })
     .messages({
@@ -107,7 +112,6 @@ export const createCouponSchema = Joi.object({
     .required()
     .custom((value, helpers) => {
       const { startDate } = helpers.state.ancestors[0];
-
       if (!startDate) return value;
 
       const start = new Date(startDate);
@@ -121,7 +125,6 @@ export const createCouponSchema = Joi.object({
           "Expiry date must be on or after the start date.",
         );
       }
-
       return value;
     })
     .messages({
@@ -132,45 +135,19 @@ export const createCouponSchema = Joi.object({
 });
 
 
-
-export const updateCouponSchema = createCouponSchema
-  .fork(
-    [
-      "code",
-      "description",
-      "discountType",
-      "discountValue",
-      "minOrderAmount",
-      "maxDiscountAmount",
-      "usageLimit",
-      "perUserLimit",
-      "startDate",
-      "expiryDate",
-      "isActive",
-    ],
-    (schema) => schema.optional(),
-  )
-  .keys({
-    expiryDate: Joi.date()
-      .iso()
-      .optional()
-      .custom((value, helpers) => {
-        const { startDate } = helpers.state.ancestors[0];
-
-        if (!startDate) return value;
-
-        const start = new Date(startDate);
-        start.setHours(0, 0, 0, 0);
-
-        const expiry = new Date(value);
-        expiry.setHours(0, 0, 0, 0);
-
-        if (expiry < start) {
-          return helpers.message(
-            "Expiry date must be on or after the start date.",
-          );
-        }
-
-        return value;
-      }),
-  });
+export const updateCouponSchema = createCouponSchema.fork(
+  [
+    "code",
+    "description",
+    "discountType",
+    "discountValue",
+    "minOrderAmount",
+    "maxDiscountAmount",
+    "usageLimit",
+    "perUserLimit",
+    "startDate",
+    "expiryDate",
+    "isActive",
+  ],
+  (schema) => schema.optional(),
+);

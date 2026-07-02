@@ -38,7 +38,7 @@ if (startDate > expiryDate) {
   };
 };
 
-//Get all coupon
+// Get all coupons
 export const getCouponService = async ({
   page = 1,
   limit = 5,
@@ -51,108 +51,113 @@ export const getCouponService = async ({
   };
 
   if (search && search.trim().length) {
-    const searchRegex= {$regex: search.trim(), $options: "i"}
+    const searchRegex = { $regex: search.trim(), $options: "i" };
     query.$or = [
-      {
-        code: searchRegex,
-      },
-      {
-        description: searchRegex,
-      },
+      { code: searchRegex },
+      { description: searchRegex },
     ];
   }
 
-const now = new Date();
+  const now = new Date();
 
+  // ✅ FIX 2: Added startDate condition to make ACTIVE pristine
   if (status === "ACTIVE") {
     query.isActive = true;
-    query.expiryDate= {$gt: now}
+    query.startDate = { $lte: now };
+    query.expiryDate = { $gt: now };
   }
 
-  if(status=== "SCHEDULED"){
-    query.isActive= true
-    query.startDate={$gt: now}
+  if (status === "SCHEDULED") {
+    query.isActive = true;
+    query.startDate = { $gt: now };
   }
 
-  if(status==="EXPIRED"){
-    query.isActive = true
-    query.expiryDate= {$lt:now}
+  if (status === "EXPIRED") {
+    query.isActive = true;
+    query.expiryDate = { $lt: now };
   }
 
   if (status === "INACTIVE") {
     query.isActive = false;
   }
 
-  if(type && type!=="ALL"){
-    query.discountType= type
+  if (type && type !== "ALL") {
+    query.discountType = type;
   }
 
   const skip = (page - 1) * limit;
 
-
-  const [coupons, totalCoupons, activeCoupon, expiredCoupon, mostUsedCoupon, givenDiscount] = await Promise.all([
+  const [
+    coupons,
+    totalCoupons,
+    activeCoupon,
+    expiredCoupon,
+    mostUsedCoupon,
+    givenDiscount
+  ] = await Promise.all([
     Coupon.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(Number(limit)),
-      // .lean({virtuals : true}),
+      // .lean(), // Recommended for performance
 
     Coupon.countDocuments(query),
 
-    //active coupon
+    // Clean historical active tally
     Coupon.countDocuments({
+      isDeleted: false,
       isActive: true,
-      expiryDate:{$gt: now}
+      startDate: { $lte: now },
+      expiryDate: { $gt: now }
     }),
 
-    //expired coupon
+    // Clean historical expired tally
     Coupon.countDocuments({
+      isDeleted: false,
       isActive: true,
-      expiryDate: {$lt: now}
+      expiryDate: { $lt: now }
     }),
 
-    //most usedCoupon
-    Coupon.findOne({
-      isDeleted: false
-    }).sort({usedCount: -1}).select("code -_id"),
+    // Most used coupon
+    Coupon.findOne({ isDeleted: false })
+      .sort({ usedCount: -1 })
+      .select("code -_id")
+      .lean(),
 
-    //Dscount given
-
+    // ✅ FIX 3: Capturing discounts across modified checkout payment records
     Order.aggregate([
       {
         $match: {
-          paymentStatus: "PAID",
-          "coupon.couponId": {$ne: null}
+          paymentStatus: { $in: ["PAID", "PARTIALLY_REFUNDED", "FULLY_REFUNDED"] },
+          "coupon.couponId": { $ne: null }
         }
       },
-
       {
-        $group:{
+        $group: {
           _id: null,
-          total: {
-            $sum: "$coupon.discountAmount"
-          }
+          total: { $sum: "$coupon.discountAmount" }
         }
       }
     ])
   ]);
 
-const discountGiven= givenDiscount[0].total || 0
+  // ✅ FIX 1: Safe extraction using optional chaining to prevent crash on empty orders
+  const discountGiven = givenDiscount[0]?.total || 0;
+
   return {
     message: "Coupons fetched successfully",
     data: {
       coupons,
-     stats:{
-       totalCoupons,
-      activeCoupon,
-      expiredCoupon,
-      mostUsedCoupon,
-      discountGiven,
-     },
-
+      stats: {
+        totalCoupons,
+        activeCoupon,
+        expiredCoupon,
+        mostUsedCoupon: mostUsedCoupon?.code || "N/A",
+        discountGiven,
+      },
       pagination: {
         currentPage: Number(page),
-        totalPages: Math.ceil(totalCoupons / limit),
+        totalPages: Math.ceil(totalCoupons / limit) || 1,
         totalItems: totalCoupons,
       },
     },
@@ -191,7 +196,14 @@ export const updateCouponService = async (couponId, payload) => {
     );
   }
 
-  Object.assign(coupon, payload);
+const entries = Object.entries(payload);
+for (const [key, value] of entries) {
+
+    coupon[key] = value;
+
+}
+
+  //Object.assign(coupon, payload);
 
   await coupon.save();
 
@@ -217,7 +229,8 @@ export const toggleCouponStatusService = async (couponId) => {
     message: "Coupon status updated",
     data: coupon,
   };
-};
+}
+
 
 
 //  Delete coupon

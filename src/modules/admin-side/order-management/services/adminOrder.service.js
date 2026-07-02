@@ -51,13 +51,27 @@ const skip= (page-1) * limit
 
       Order.aggregate([
         {
-          $match: { paymentStatus: "PAID" },
+          $match:{
+            paymentStatus:{$in:["PAID", "PARTIALLY_REFUNDED", "FULLY_REFUNDED"]}
+          },
+        },
+        {
+          $project:{
+            totalAmount: 1,
+            itemRefunds: {
+              $reduce: {
+                input: "$items",
+                initialValue: 0,
+                in: {$add: ["$$value", {$ifNull: ["$$this.refundAmount", 0]}]}
+              }
+            }
+          }
         },
         {
           $group: {
             _id: null,
             totalRevenue: {
-              $sum: "$totalAmount",
+              $sum: {$subtract: ["$totalAmount", "$itemRefunds"]}
             },
           },
         },

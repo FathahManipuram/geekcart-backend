@@ -16,7 +16,7 @@ export const getSalesReportService = async ({
   limit = Number(limit);
 
   const filters = {
-    paymentStatus: "PAID",
+    paymentStatus: { $in: ["PAID", "PARTIALLY_REFUNDED", "FULLY_REFUNDED"] },
   };
 
   Object.assign(
@@ -49,101 +49,166 @@ export const getSalesReportService = async ({
       {
         $match: filters,
       },
-
       {
-        $group: {
-          _id: null,
+        $project: {
+          subtotal: 1,
+          couponDiscount: { $ifNull: ["$coupon.discountAmount", 0] },
+          itemsCount: { $size: { $ifNull: ["$items", []] } },
 
-          overallSalesCount: { $sum: 1 },
-          grossSales: { $sum: "$subtotal" },
-          offerDiscount: { $sum: "$discount" },
-          couponDiscount: { $sum: "$coupon.discountAmount" },
-          netSales: { $sum: "$totalAmount" },
-          totalOderedItems: {
-            $sum: {
-              $size: "$items",
-            },
-          },
-          itemsSold: {
-            $sum: {
-              $reduce: {
-                input: "$items",
-                initialValue: 0,
-                in: {
-                  $add: [
-                    "$$value",
-                    {
-                      $cond: [
-                        {
-                          $in: ["$$this.itemStatus", SUCCESSFUL_ITEM_STATUSES],
-                        },
-                        "$$this.quantity",
-                        0,
-                      ],
-                    },
-                  ],
-                },
+          itemsSoldInOrder: {
+            $reduce: {
+              input: "$items",
+              initialValue: 0,
+              in: {
+                $add: [
+                  "$$value",
+                  {
+                    $cond: [
+                      { $in: ["$$this.itemStatus", SUCCESSFUL_ITEM_STATUSES] },
+                      "$$this.quantity",
+                      0,
+                    ],
+                  },
+                ],
               },
             },
           },
 
-          cancelledItems: {
-            $sum: {
-              $reduce: {
-                input: "$items",
-                initialValue: 0,
-                in: {
-                  $add: [
-                    "$$value",
-                    {
-                      $cond: [
-                        { $eq: ["$$this.itemStatus", "CANCELLED"] },
-                        "$$this.quantity",
-                        0,
-                      ],
-                    },
-                  ],
-                },
+          // ✅ FIX 1: Multiplied Offer Discount by line-item Quantity to fix the 400 vs 600 mismatch
+          offerDiscountInOrder: {
+            $reduce: {
+              input: "$items",
+              initialValue: 0,
+              in: {
+                $add: [
+                  "$$value",
+                  {
+                    $cond: [
+                      {
+                        $and: [
+                          { $ifNull: ["$$this.appliedOffer", false] },
+                          {
+                            $gt: [
+                              {
+                                $ifNull: [
+                                  "$$this.appliedOffer.discountAmount",
+                                  0,
+                                ],
+                              },
+                              0,
+                            ],
+                          },
+                        ],
+                      },
+                      {
+                        $multiply: [
+                          "$$this.appliedOffer.discountAmount",
+                          { $ifNull: ["$$this.quantity", 1] },
+                        ],
+                      },
+                      0,
+                    ],
+                  },
+                ],
               },
             },
           },
 
-          returnedItems: {
-            $sum: {
-              $reduce: {
-                input: "$items",
-                initialValue: 0,
-                in: {
-                  $add: [
-                    "$$value",
-                    {
-                      $cond: [
-                        { $eq: ["$$this.itemStatus", "RETURN_COMPLETED"] },
-                        "$$this.quantity",
-                        0,
-                      ],
-                    },
-                  ],
-                },
+          cancelledInOrder: {
+            $reduce: {
+              input: "$items",
+              initialValue: 0,
+              in: {
+                $add: [
+                  "$$value",
+                  {
+                    $cond: [
+                      { $eq: ["$$this.itemStatus", "CANCELLED"] },
+                      "$$this.quantity",
+                      0,
+                    ],
+                  },
+                ],
               },
             },
           },
 
-          refundedAmount: {
-            $sum: {
-              $reduce: {
-                input: "$items",
-                initialValue: 0,
-                in: {
-                  $add: ["$$value", { $ifNull: ["$$this.refundAmount", 0] }],
-                },
+          returnedInOrder: {
+            $reduce: {
+              input: "$items",
+              initialValue: 0,
+              in: {
+                $add: [
+                  "$$value",
+                  {
+                    $cond: [
+                      { $eq: ["$$this.itemStatus", "RETURN_COMPLETED"] },
+                      "$$this.quantity",
+                      0,
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+
+          refundedInOrder: {
+            $reduce: {
+              input: "$items",
+              initialValue: 0,
+              in: {
+                $add: ["$$value", { $ifNull: ["$$this.refundAmount", 0] }],
               },
             },
           },
         },
       },
+      {
+        $project: {
+          subtotal: 1,
+          couponDiscount: 1,
+          itemsCount: 1,
+          itemsSoldInOrder: 1,
+          offerDiscountInOrder: 1,
+          cancelledInOrder: 1,
+          returnedInOrder: 1,
+          refundedInOrder: 1,
+          // ✅ FIX 2: Wrapped in $max to guarantee the calculated order baseline never drops below 0
+          orderNetCalculated: {
+            $max: [
+              0,
+              {
+                $subtract: [
+                  "$subtotal",
+                  {
+                    $add: [
+                      "$couponDiscount",
+                      "$offerDiscountInOrder",
+                      "$refundedInOrder",
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          overallSalesCount: { $sum: 1 },
+          grossSales: { $sum: "$subtotal" },
+          offerDiscount: { $sum: "$offerDiscountInOrder" },
+          couponDiscount: { $sum: "$couponDiscount" },
+          netSales: { $sum: "$orderNetCalculated" }, 
+          totalOderedItems: { $sum: "$itemsCount" },
+          itemsSold: { $sum: "$itemsSoldInOrder" },
+          cancelledItems: { $sum: "$cancelledInOrder" },
+          returnedItems: { $sum: "$returnedInOrder" },
+          refundedAmount: { $sum: "$refundedInOrder" },
+        },
+      },
     ]),
-
     Order.countDocuments(filters),
   ]);
 
@@ -162,21 +227,22 @@ export const getSalesReportService = async ({
 
   return {
     message: "Sales report fetched successfully",
-
     data: {
       summary,
-
       orders,
-
       pagination: {
         currentPage: page,
-        totalPages: Math.ceil(totalOrders / limit),
-        totalItems: totalOrders,
+        totalPages: Math.ceil(totalOrders / limit) || 1,
+        totalItems: totalOrders || 0,
         limit,
       },
     },
   };
 };
+
+
+
+
 export const exportSalesExcelService = async (filters) => {
   const report = await getSalesReportService({
     ...filters,
