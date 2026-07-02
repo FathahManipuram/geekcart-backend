@@ -24,7 +24,7 @@ import { generateReferralCode } from "../../../common/utils/referral.util.js";
 
 //user register
 export const registerUser = async (data) => {
-  const { email, password, referralCode } = data;
+  const { email, password, referralCode} = data;
   const existingUser = await User.findOne({ email });
 
   if (existingUser) {

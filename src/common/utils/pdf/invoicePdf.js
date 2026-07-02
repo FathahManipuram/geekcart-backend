@@ -115,7 +115,7 @@ export const generateInvoicePdf = ({ order, res }) => {
 
   let currentY = tableY + 35;
 
-  // refund tracking variables
+  // Track exact accumulated financial deductions
   let cancellationRefund = 0;
   let returnRefund = 0;
 
@@ -143,13 +143,13 @@ export const generateInvoicePdf = ({ order, res }) => {
     const rowTotal = unitPrice * item.quantity;
 
     const isItemCancelled = item.itemStatus === "CANCELLED";
-    const isItemReturned =
-      item.itemStatus === "RETURNED" || !!item.returnRequestId;
+    const isItemReturned = item.itemStatus === "RETURN_COMPLETED";
 
+    // FIX: Using ?? instead of || so that an intentional 0 value isn't ignored
     if (isItemCancelled) {
-      cancellationRefund += item.refundAmount || rowTotal;
+      cancellationRefund += item.refundAmount ?? rowTotal;
     } else if (isItemReturned) {
-      returnRefund += item.refundAmount || rowTotal;
+      returnRefund += item.refundAmount ?? rowTotal;
     }
 
     doc
@@ -195,7 +195,6 @@ export const generateInvoicePdf = ({ order, res }) => {
         .text(formatCurrency(unitPrice), 390, currentY);
     }
 
-    // total
     doc.text(formatCurrency(rowTotal), 470, currentY);
 
     doc
@@ -242,12 +241,10 @@ export const generateInvoicePdf = ({ order, res }) => {
 
   // Coupon Discount
   if (couponDiscount > 0) {
-    // 1. Discount amount line
     doc.fillColor("#000000").text("Coupon Discount", 350, summaryY);
     doc.text(`- ${formatCurrency(couponDiscount)}`, 470, summaryY);
     summaryY += 16;
 
-    // 2. Coupon code sub-line (placed underneath)
     if (couponCode) {
       doc
         .fontSize(9)
@@ -255,8 +252,6 @@ export const generateInvoicePdf = ({ order, res }) => {
         .text(`Code: ${couponCode}`, 350, summaryY);
       summaryY += 16;
     }
-
-    // Reset styling back to normal standard text
     doc.fontSize(11).fillColor("#000000");
   }
 
@@ -309,13 +304,13 @@ export const generateInvoicePdf = ({ order, res }) => {
     doc.font("Helvetica").fontSize(11);
 
     if (cancellationRefund > 0) {
-      doc.fillColor("#dc2626").text("Cancelled Items Refund", 350, summaryY);
+      doc.fillColor("#dc2626").text("Cancelled items reduction", 350, summaryY);
       doc.text(` - ${formatCurrency(cancellationRefund)}`, 470, summaryY);
       summaryY += 20;
     }
 
     if (returnRefund > 0) {
-      doc.fillColor("#dc2626").text("Returned Items Refund", 350, summaryY);
+      doc.fillColor("#dc2626").text("Returned items reduction", 350, summaryY);
       doc.text(`- ${formatCurrency(returnRefund)}`, 470, summaryY);
       summaryY += 20;
     }
@@ -332,7 +327,7 @@ export const generateInvoicePdf = ({ order, res }) => {
       .font("Helvetica-Bold")
       .fontSize(13)
       .fillColor("#16a34a")
-      .text("Net Paid Amount", 350, summaryY);
+      .text("Final Net Amount", 350, summaryY);
     doc.text(formatCurrency(netPaid), 470, summaryY);
   }
 
@@ -360,4 +355,4 @@ export const generateInvoicePdf = ({ order, res }) => {
     );
 
   doc.end();
-};;
+};
