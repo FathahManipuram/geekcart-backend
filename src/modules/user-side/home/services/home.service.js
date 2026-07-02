@@ -57,7 +57,6 @@ export const getHomeDataService = async () => {
 
  // const offers = await getActiveOffers();
 
-
   const productsWithVariants = products.map((product) => ({
     ...product,
     variants: variants.filter(

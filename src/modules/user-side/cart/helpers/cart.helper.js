@@ -1,28 +1,28 @@
-export const calculateCartSummary = (items = [], speedCharge =0) => {
+
+export const calculateCartSummary = (items = [], speedCharge = 0) => {
   let subtotal = 0;
   let discount = 0;
 
   items.forEach((item) => {
-    const OriginalPrice = item.price * item.quantity;
-    const finalPrice = (item.salePrice || item.price) * item.quantity;
+    const originalPrice = item.price * item.quantity;
+    const salePrice = (item.salePrice ?? item.price) * item.quantity;
 
-    subtotal += OriginalPrice;
-    discount += OriginalPrice - finalPrice;
+    subtotal += originalPrice;
+    discount += originalPrice - salePrice;
   });
 
-  const shippingCharge =
-    subtotal - discount > 1500 || items.length === 0 ? 0 : 40;
+  const netSubtotal = subtotal - discount;
 
-    const totalDeliveryCharge= shippingCharge + speedCharge
+  const shippingCharge = netSubtotal >= 1500 || items.length === 0 ? 0 : 40;
 
-
-  const total = subtotal - discount + totalDeliveryCharge;
+  const deliveryCharge = shippingCharge + speedCharge;
 
   return {
     subtotal,
     discount,
     shippingCharge,
-    deliveryCharge: totalDeliveryCharge,
-    total,
+    speedCharge,
+    deliveryCharge,
+    total: netSubtotal + deliveryCharge,
   };
 };

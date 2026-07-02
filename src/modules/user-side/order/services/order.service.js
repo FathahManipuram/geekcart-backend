@@ -14,12 +14,13 @@ import { processReferralReward } from "../../referral/services/referral.service.
 import { Coupon } from "../../../admin-side/coupon-management/models/coupon.model.js";
 import { calculateCheckoutSummary } from "../helpers/calculateCheckoutSummary.js";
 import { Wallet } from "../../wallet/models/wallet.model.js";
-import { calculateCartSummary } from "../../cart/helpers/cart.helper.js";
 import { calculateItemRefund } from "../helpers/calculateItemRefund.js";
+import { calculateOrderSummary } from "../helpers/calculateOrderSummary.js";
+import { allocateCouponDiscount } from "../../coupon/helper/allocateCouponDiscount.helper.js";
+import { handleCouponRestoration } from "../../coupon/helper/handleCouponRestoration.helper.js";
 
 
 
-// Create order
 export const createOrderService = async ({
   userId,
   addressId,
@@ -33,42 +34,28 @@ export const createOrderService = async ({
   try {
     session.startTransaction();
 
-    
     if (paymentMethod === "RAZORPAY" && !paymentDetails?.razorpayPaymentId) {
-      throw new AppError(
-        "Payment details are required",
-        HTTP_STATUS.BAD_REQUEST,
-      );
+      throw new AppError("Payment details are required", HTTP_STATUS.BAD_REQUEST);
     }
 
-    const address = await Address.findOne({ _id: addressId, userId }, null, {
-      session,
-    });
-
+    const address = await Address.findOne({ _id: addressId, userId }, null, { session });
     if (!address) {
       throw new AppError("Address not found", HTTP_STATUS.NOT_FOUND);
     }
 
-
- const cart = await Cart.findOne({ userId }, null, { session }).populate({
-   path: "items.productId",
-   select: "name slug category subcategory isActive isDeleted",
- });
+    const cart = await Cart.findOne({ userId }, null, { session }).populate({
+      path: "items.productId",
+      select: "name slug category subcategory isActive isDeleted",
+    });
 
     if (!cart || !cart.items.length) {
       throw new AppError("Cart is empty", HTTP_STATUS.BAD_REQUEST);
     }
 
-
     const validationResult = await validateCartItems(cart.items);
     if (!validationResult.valid) {
-      throw new AppError(
-        "Checkout validation failed",
-        HTTP_STATUS.BAD_REQUEST,
-        validationResult.issues, 
-      );
+      throw new AppError("Checkout validation failed", HTTP_STATUS.BAD_REQUEST, validationResult.issues);
     }
-
 
     const {
       subtotal,
@@ -78,7 +65,7 @@ export const createOrderService = async ({
       speedCharge,
       couponSnapshot,
       finalTotal,
-    recalculatedItems,
+      recalculatedItems,
     } = await calculateCheckoutSummary({
       userId,
       cart,
@@ -87,69 +74,58 @@ export const createOrderService = async ({
       session,
     });
 
-
     if (paymentMethod === "WALLET") {
-      const wallet = await Wallet.findOne(
-        { user: userId, isActive: true },
-        null,
-        { session },
-      );
-      if (!wallet) {
-        throw new AppError(
-          "Wallet not found",
-          HTTP_STATUS.BAD_REQUEST,
-        );
-      }
+      const wallet = await Wallet.findOne({ user: userId, isActive: true }, null, { session });
+      if (!wallet) throw new AppError("Wallet not found", HTTP_STATUS.BAD_REQUEST);
       if (wallet.balance < finalTotal) {
-        throw new AppError(
-          "Insufficient wallet balance",
-          HTTP_STATUS.BAD_REQUEST,
-        );
+        throw new AppError("Insufficient wallet balance", HTTP_STATUS.BAD_REQUEST);
       }
     }
-
 
     for (const item of cart.items) {
       const result = await Variant.updateOne(
-        {
-          _id: item.variantId,
-          stock: { $gte: item.quantity },
-        },
-        {
-          $inc: { stock: -item.quantity },
-        },
-        { session },
+        { _id: item.variantId, stock: { $gte: item.quantity } },
+        { $inc: { stock: -item.quantity } },
+        { session }
       );
 
       if (!result.modifiedCount) {
-        throw new AppError(
-          `${item.name} is out of stock`,
-          HTTP_STATUS.BAD_REQUEST,
-        );
+        throw new AppError(`${item.name} is out of stock`, HTTP_STATUS.BAD_REQUEST);
       }
     }
-const orderItemsSnapshot = recalculatedItems.map((item) => ({
-  product: item.productId._id || item.productId,
-  variantId: item.variantId,
-  name: item.name,
-  image: item.image,
-  size: item.size,
-  color: item.color,
-  quantity: item.quantity,
-  price: item.price,
-  salePrice: item.salePrice,
-  appliedOffer: item.appliedOffer
-    ? {
-        offerId: item.appliedOffer._id,
-        name: item.appliedOffer.name,
-        offerType: item.appliedOffer.offerType,
-        discountType: item.appliedOffer.discountType,
-        discountValue: item.appliedOffer.discountValue,
-        maxDiscountAmount: item.appliedOffer.maxDiscountAmount,
-        discountAmount: item.discountAmount,
-      }
-    : null,
-}));
+
+    const totalCouponDiscountAmount = couponSnapshot?.discountAmount || 0;
+
+
+    const itemsWithCouponAllocation = allocateCouponDiscount({
+      items: recalculatedItems,
+      totalCouponDiscount: totalCouponDiscountAmount,
+    });
+
+
+    const orderItemsSnapshot = itemsWithCouponAllocation.map((item) => ({
+      product: item.productId._id || item.productId,
+      variantId: item.variantId,
+      name: item.name,
+      image: item.image,
+      size: item.size,
+      color: item.color,
+      quantity: item.quantity,
+      price: item.price,
+      salePrice: item.salePrice,
+      couponDiscount: item.couponDiscount || 0,
+      appliedOffer: item.appliedOffer
+        ? {
+            offerId: item.appliedOffer._id,
+            name: item.appliedOffer.name,
+            offerType: item.appliedOffer.offerType,
+            discountType: item.appliedOffer.discountType,
+            discountValue: item.appliedOffer.discountValue,
+            maxDiscountAmount: item.appliedOffer.maxDiscountAmount,
+            discountAmount: item.discountAmount,
+          }
+        : null,
+    }));
 
     const [order] = await Order.create(
       [
@@ -191,7 +167,6 @@ const orderItemsSnapshot = recalculatedItems.map((item) => ({
       { session },
     );
 
-
     if (paymentMethod === "WALLET") {
       const walletResult = await debitWallet({
         userId,
@@ -204,18 +179,15 @@ const orderItemsSnapshot = recalculatedItems.map((item) => ({
 
       const walletTxId = walletResult?.transaction?._id || walletResult?._id;
 
-
       order.paymentDetails = {
         ...order.paymentDetails,
         walletTransactionId: walletTxId,
         paidAt: new Date(),
       };
 
-
       await order.save({ session });
     }
 
-  
     if (couponSnapshot) {
       await Coupon.updateOne(
         { _id: couponSnapshot.couponId },
@@ -224,14 +196,11 @@ const orderItemsSnapshot = recalculatedItems.map((item) => ({
       );
     }
 
-    
     cart.items = [];
     cart.summary = { subtotal: 0, discount: 0, deliveryCharge: 0, total: 0 };
     await cart.save({ session });
 
-
     await session.commitTransaction();
-
 
     if (order.paymentStatus === "PAID") {
       processReferralReward(userId).catch((error) => {
@@ -262,27 +231,25 @@ const orderItemsSnapshot = recalculatedItems.map((item) => ({
 
 
 
-// get order by id
-export const getOrderByIdService = async ({ userId, orderId }) => {
-	if(!orderId){
-		throw new AppError("OrderId not found", HTTP_STATUS.BAD_REQUEST)
-	}
-	
-  const order = await Order.findOne({
-    _id: orderId,
-    user: userId,
-  });
 
+//Get by id
+export const getOrderByIdService = async ({ orderId }) => {
+  const order = await Order.findById(orderId).populate("items.product");
   if (!order) {
     throw new AppError("Order not found", HTTP_STATUS.NOT_FOUND);
   }
 
+
+  const currentSummary = calculateOrderSummary(order);
+
   return {
-    message: "Order fetched successfully",
-    data: order,
+    message: "Order details fetched successfully",
+    data: {
+      ...order.toObject(),
+      currentSummary,
+    },
   };
 };
-
 
 
 // Get all orders  || get History
@@ -325,93 +292,124 @@ const skip= (page-1) * limit
 };
 
 
-//Cancel order item
-export const cancelOrderitemService= async({
-  userId, orderId, itemId,reason
-})=>{
+// Cancel order item
+export const cancelOrderitemService = async ({
+  userId,
+  orderId,
+  itemId,
+  reason
+}) => {
 
-  console.log("1:", userId, orderId, reason)
-  const order= await Order.findOne({_id: orderId, user: userId})
-console.log(order)
-  if(!order){
+
+  const order = await Order.findOne({ _id: orderId, user: userId }).populate("coupon.couponId", "minOrderAmount");
+
+  if (!order) {
     throw new AppError("Order not found", HTTP_STATUS.NOT_FOUND);
   }
 
-  const item= order.items.id(itemId)
-
-  if(!item){
+  const item = order.items.id(itemId);
+  if (!item) {
     throw new AppError("Item not found", HTTP_STATUS.NOT_FOUND);
   }
-const cancellableStatuses = [ITEM_STATUSES.PLACED, ITEM_STATUSES.PROCESSING];
 
 
-item.itemStatus = ITEM_STATUSES.CANCELLED;
-
-item.itemStatusHistory.push({
-  status: ITEM_STATUSES.CANCELLED,
-  updatedBy: "USER",
-});
-
-item.cancellation = {
-  reason,
-  cancelledAt: new Date(),
-  cancelledBy: "USER",
-};
-
-const refundablePayments = ["RAZORPAY", "WALLET"];
-
-if (
-  refundablePayments.includes(order.paymentMethod) &&
-  order.paymentStatus === "PAID"
-) {
-  const refundAmount = calculateItemRefund({
-    order,
-    item,
-    operation: "CANCELLATION",
-  });
-
-  if (item.refundStatus === "COMPLETED") {
-    throw new AppError("Refund already processed", HTTP_STATUS.BAD_REQUEST);
+  const cancellableStatuses = [ITEM_STATUSES.PLACED, ITEM_STATUSES.PROCESSING];
+  if (!cancellableStatuses.includes(item.itemStatus)) {
+    throw new AppError(`Item cannot be cancelled from status: ${item.itemStatus}`, HTTP_STATUS.BAD_REQUEST);
   }
 
-  await creditWallet({
-    userId: order.user,
-    amount: refundAmount,
-    reason: "ITEM_CANCELLED",
-    description: `Refund for cancelled item ${item.name}`,
-    referenceId: order._id,
+ const remainingItems = order.items.filter(
+   (i) =>
+     i._id.toString() !== item._id.toString() &&
+     !["CANCELLED", "RETURN_COMPLETED"].includes(i.itemStatus),
+ );
+
+  if (order.coupon) {
+
+    const minOrderRequirement = order.coupon.couponId?.minOrderAmount || order.coupon.minOrderAmount || 0;
+
+  
+    if (remainingItems.length > 0) {
+      const remainingSubtotal = remainingItems.reduce(
+        (sum, i) => sum + (i.salePrice ?? i.price) * i.quantity, 
+        0
+      );
+
+      if (remainingSubtotal < minOrderRequirement) {
+        throw new AppError(
+          `Partial cancellation is not allowed. This item cannot be cancelled individually because doing so would drop the order total below the ₹${minOrderRequirement} threshold required for your applied coupon (${order.coupon.code}). Please cancel the entire order instead.`,
+          HTTP_STATUS.BAD_REQUEST
+        );
+      }
+    }
+  }
+
+  item.itemStatus = ITEM_STATUSES.CANCELLED;
+  item.itemStatusHistory.push({
+    status: ITEM_STATUSES.CANCELLED,
+    updatedBy: "USER",
   });
 
-  item.refundAmount = refundAmount;
-  item.refundStatus = "COMPLETED";
-}
+  item.cancellation = {
+    reason,
+    cancelledAt: new Date(),
+    cancelledBy: "USER",
+  };
 
-  const newOrderStatus= recalculateOrderStatus(order.items)
+  if (remainingItems.length === 0) {
+    await handleCouponRestoration(order);
+  }
 
-  if(newOrderStatus){
-    order.orderStatus= newOrderStatus
+  const refundablePayments = ["RAZORPAY", "WALLET"];
+  if (
+    refundablePayments.includes(order.paymentMethod) &&
+    order.paymentStatus === "PAID"
+  ) {
+    if (item.refundStatus === "COMPLETED") {
+      throw new AppError("Refund already processed", HTTP_STATUS.BAD_REQUEST);
+    }
 
+    const refundAmount = calculateItemRefund({
+      order,
+      item,
+      operation: "CANCELLATION",
+    });
+
+    if (refundAmount > 0) {
+      await creditWallet({
+        userId: order.user,
+        amount: refundAmount,
+        reason: "ITEM_CANCELLED",
+        description: `Refund for cancelled item ${item.name}`,
+        referenceId: order._id,
+      });
+    }
+
+    item.refundAmount = refundAmount;
+    item.refundStatus = "COMPLETED";
+  }
+
+  const newOrderStatus = recalculateOrderStatus(order.items);
+  if (newOrderStatus) {
+    order.orderStatus = newOrderStatus;
     order.statusHistory.push({
       status: newOrderStatus,
       updatedBy: "USER"
-    })
+    });
   }
 
-  await order.save()
+  await order.save();
+
 
   await Variant.updateOne(
     { _id: item.variantId },
-    {
-      $inc: {
-        stock: item.quantity,
-      },
-    },
+    { $inc: { stock: item.quantity } }
   );
 
   return {
     message: "Item cancelled successfully",
   };
-}
+};
 
 
 //Cancel All order
@@ -523,6 +521,10 @@ export const cancelAllOrderService = async ({ userId, orderId, reason }) => {
     cancelledAt: new Date(),
     cancelledBy: "USER",
   };
+
+  if (order.coupon && order.coupon.couponId) {
+   await handleCouponRestoration(order);
+  }
 
   await order.save();
 

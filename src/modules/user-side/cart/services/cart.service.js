@@ -3,68 +3,84 @@
 import { HTTP_STATUS } from "../../../../common/constants/statusCode.js";
 import { AppError } from "../../../../common/utils/AppError.js";
 import { Variant } from "../../../admin-side/product-management/models/variant.model.js";
+import { calculateBestOffer } from "../../offer/helpers/calculateBestOffer.helper.js";
 import { getActiveOffers } from "../../offer/helpers/getActiveOffers.helper.js";
 import { getVariantWithOffer } from "../../offer/helpers/getVariantWithOffer.helper.js";
+import { Wishlist } from "../../wishlist/models/wishlist.model.js";
+import { removeWishlistService } from "../../wishlist/services/wishlist.service.js";
 import { applyOffersToCartItems } from "../helpers/applyOffersToCartItems.helper.js";
 import { calculateCartSummary } from "../helpers/cart.helper.js";
+import { syncCartPricesAndOffers } from "../helpers/syncCartPrices.helper.js";
 import { Cart } from "../models/cart.model.js";
 
 
 // Add to cart
 export const addToCartService = async (userId, variantId, quantity) => {
-
   if (quantity < 1) {
     throw new AppError("Quantity must be at least 1", HTTP_STATUS.BAD_REQUEST);
   }
 
   if (quantity > 5) {
-    throw new AppError("You can add a maximum of 5 units per item.", HTTP_STATUS.BAD_REQUEST);
+    throw new AppError(
+      "You can add a maximum of 5 units per item.",
+      HTTP_STATUS.BAD_REQUEST,
+    );
   }
 
-const [variant, cart] = await Promise.all([
+  const [variant, cart] = await Promise.all([
     Variant.findOne({
       _id: variantId,
       isDeleted: false,
       isActive: true,
-    }).populate("product", "name"),
-    
-    Cart.findOne({ userId })
+    }).populate("product", "name isActive isDeleted"),
+
+    Cart.findOne({ userId }),
   ]);
 
-if(!variant){
-  throw new AppError("Variant not found Or variant disabled", HTTP_STATUS.NOT_FOUND)
-}
+  if (!variant) {
+    throw new AppError(
+      "Variant not found Or variant disabled",
+      HTTP_STATUS.NOT_FOUND,
+    );
+  }
+  if (!variant.product.isActive) {
+    throw new AppError("Product is disabled", HTTP_STATUS.BAD_REQUEST);
+  }
 
-if(variant.stock < quantity){
-  throw new AppError(`Insufficient stock. Only ${variant.stock} units available.`, HTTP_STATUS.BAD_REQUEST);
-}
+  if (variant.product.isDeleted) {
+    throw new AppError("Product is unavailable", HTTP_STATUS.BAD_REQUEST);
+  }
 
+  if (variant.stock < quantity) {
+    throw new AppError(
+      `Insufficient stock. Only ${variant.stock} units available.`,
+      HTTP_STATUS.BAD_REQUEST,
+    );
+  }
 
-let activeCart= cart
+  let activeCart = cart;
 
-if(!activeCart){
-  activeCart = await Cart.create({
+  if (!activeCart) {
+    activeCart = await Cart.create({
       userId,
       items: [],
     });
-}
+  }
 
-
-const existingItemIndex = activeCart.items.findIndex(
-    (item) => item.variantId.toString() === variantId.toString()
+  const existingItemIndex = activeCart.items.findIndex(
+    (item) => item.variantId.toString() === variantId.toString(),
   );
 
-
-if(existingItemIndex < 0 && activeCart.items.length >=10){
-  throw new AppError(
-    "Your cart cannot contain more than 10 unique products.",
-    HTTP_STATUS.BAD_REQUEST,
-  );
-}
+  if (existingItemIndex < 0 && activeCart.items.length >= 10) {
+    throw new AppError(
+      "Your cart cannot contain more than 10 unique products.",
+      HTTP_STATUS.BAD_REQUEST,
+    );
+  }
 
   const variantWithOffer = await getVariantWithOffer(variant);
 
-if (existingItemIndex > -1) {
+  if (existingItemIndex > -1) {
     const existingItem = activeCart.items[existingItemIndex];
     const newQuantity = existingItem.quantity + quantity;
 
@@ -77,45 +93,48 @@ if (existingItemIndex > -1) {
     if (newQuantity > variant.stock) {
       throw new AppError(
         `Cannot add more items. Total quantity would exceed available stock (${variant.stock}).`,
-        HTTP_STATUS.BAD_REQUEST
+        HTTP_STATUS.BAD_REQUEST,
       );
     }
 
+    activeCart.items[existingItemIndex].quantity = newQuantity;
+    activeCart.items[existingItemIndex].salePrice = variantWithOffer.salePrice;
+  } else {
+    activeCart.items.push({
+      productId: variant.product._id,
+      variantId: variant._id,
+      name: variant.product.name,
+      image: variant.images?.[0] || "",
+      color: variant.color,
+      size: variant.size,
+      price: variant.price,
+      salePrice: variantWithOffer.salePrice,
+      quantity,
+      stock: variant.stock,
+    });
+  }
 
-activeCart.items[existingItemIndex].quantity = newQuantity;
-activeCart.items[existingItemIndex].salePrice = variantWithOffer.salePrice;
+  activeCart.summary = calculateCartSummary(activeCart.items);
 
-}else{
+  await activeCart.save();
 
-  activeCart.items.push({
-    productId: variant.product._id,
-    variantId: variant._id,
-    name: variant.product.name,
-    image: variant.images?.[0] || "",
-    color: variant.color,
-    size: variant.size,
-    price: variant.price,
-    salePrice: variantWithOffer.salePrice,
-    quantity,
-    stock: variant.stock,
-  });
+try {
+  await removeWishlistService(userId, variantId, true);
+} catch (wishlistError) {
+  console.error("Silent wishlist cleanup failed:", wishlistError);
 }
 
-activeCart.summary = calculateCartSummary(activeCart.items)
-
-await activeCart.save();
 
   return {
     message: "Added to cart successfully",
     data: activeCart,
   };
-
-};
-
+};;
 
 
-//Get cart
-export const getCartService=async(userId)=>{
+
+// Get cart
+export const getCartService = async (userId) => {
   const cart = await Cart.findOne({ userId })
     .populate({
       path: "items.productId",
@@ -123,49 +142,43 @@ export const getCartService=async(userId)=>{
     })
     .populate({
       path: "items.variantId",
-      select: "stock isActive isDeleted",
+      select: "price stock isActive isDeleted",
     });
 
-  if(!cart){
+  if (!cart) {
     return {
       message: "Cart fetched successfully",
       data: {
         items: [],
-
         summary: {
           subtotal: 0,
-
           discount: 0,
-      
+          shippingCharge: 0,
           deliveryCharge: 0,
-
           total: 0,
         },
+        changes: [],
       },
     };
   }
 
   const offers = await getActiveOffers();
 
-   const items = applyOffersToCartItems({
-     items: cart.items,
-     offers,
-   });
 
-   const summary = calculateCartSummary(items);
- const cartObj = cart.toObject();
+  const { changes } = await syncCartPricesAndOffers(cart, offers);
 
+  const summary = calculateCartSummary(cart.items);
 
   return {
     message: "Cart fetched successfully",
     data: {
-      ...cartObj,
-      items,
+      ...cart.toObject(),
       summary,
+      changes, // Send this array back to trigger your UI toasts
     },
   };
+};
 
-}
 
 //Upadte cart quantity
 export const updateCartQuantityService= async({

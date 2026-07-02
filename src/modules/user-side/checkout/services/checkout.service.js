@@ -9,6 +9,7 @@ import { Variant } from "../../../admin-side/product-management/models/variant.m
 import { Address } from "../../address/models/address.model.js";
 import { Cart } from "../../cart/models/cart.model.js";
 import { validateCoupon } from "../../coupon/helper/validateCoupon.helper.js";
+import { applyCouponService } from "../../coupon/services/userCoupon.service.js";
 import { getVariantWithOffer } from "../../offer/helpers/getVariantWithOffer.helper.js";
 import { calculateCheckoutSummary } from "../../order/helpers/calculateCheckoutSummary.js";
 import { validateCartItems } from "../../order/helpers/validateCartItems.helper.js";
@@ -66,7 +67,11 @@ export const validateCheckoutService = async (userId) => {
         type: CHECKOUT_ISSUES.PRODUCT_NOT_FOUND.code,
         message: CHECKOUT_ISSUES.PRODUCT_NOT_FOUND.message,
         productId: item.productId,
+        variantId: item.variantId,
         productName: item.name,
+        image: item.image,
+        color: item.color,
+        size: item.size,
       });
 
       continue;
@@ -77,7 +82,11 @@ export const validateCheckoutService = async (userId) => {
         type: CHECKOUT_ISSUES.PRODUCT_UNLISTED.code,
         message: CHECKOUT_ISSUES.PRODUCT_UNLISTED.message,
         productId: item.productId,
+        variantId: item.variantId,
         productName: item.name,
+        size: item.size,
+        color: item.color,
+        image: item.image,
       });
 
       continue;
@@ -107,6 +116,9 @@ export const validateCheckoutService = async (userId) => {
         message: CHECKOUT_ISSUES.VARIANT_NOT_FOUND.message,
         productId: item.productId,
         variantId: item.variantId,
+        size: item.size,
+        color: item.color,
+        image: item.image,
       });
 
       continue;
@@ -161,28 +173,6 @@ export const validateCheckoutService = async (userId) => {
     }
 
 
-      const variantWithOffer = await getVariantWithOffer(variant);
-
-       const currentPrice = variantWithOffer.salePrice;
-       const cartPrice = item.salePrice ?? item.price;
-
-    if (currentPrice !== cartPrice) {
-      issues.push({
-        type: CHECKOUT_ISSUES.PRICE_CHANGED.code,
-        message: CHECKOUT_ISSUES.PRICE_CHANGED.message,
-
-        productId: item.productId,
-        variantId: item.variantId,
-
-        productName: item.name,
-        size: item.size,
-        color: item.color,
-        image: item.image,
-
-        oldPrice: cartPrice,
-        newPrice: currentPrice,
-      });
-    }
   }
 
   return {
@@ -198,6 +188,7 @@ export const validateCheckoutService = async (userId) => {
   };
 };
 
+
 //Validate shipping
 export const validateShippingService = async ({
   userId,
@@ -210,7 +201,7 @@ export const validateShippingService = async ({
     _id: addressId,
     userId,
   });
-  console.log("deliveryMethod: ", deliveryMethod);
+
   if (!address) {
     issues.push({
       type: SHIPPING_ISSUES.ADDRESS_NOT_FOUND.code,
@@ -232,6 +223,8 @@ export const validateShippingService = async ({
 };
 
 
+
+//Validate payment
 export const validatePaymentService = async ({
   userId,
   paymentMethod,
@@ -260,24 +253,43 @@ const [cart, wallet] = await Promise.all([
      throw new AppError("Cart is empty", HTTP_STATUS.BAD_REQUEST);
    }
 
-let coupon = null;
-if (couponId) {
-  coupon = await Coupon.findById(couponId);
+// let coupon = null;
+// if (couponId) {
+//   coupon = await Coupon.findById(couponId);
 
-  await validateCoupon({
-    userId,
-    coupon,
-    subtotal: cart.summary.subtotal,
-  });
-}
+//   await validateCoupon({
+//     userId,
+//     coupon,
+//     subtotal: cart.summary.subtotal,
+//   });
+// }
 
 
-  const { finalTotal } = await calculateCheckoutSummary({
+  const { finalTotal, subtotal } = await calculateCheckoutSummary({
     userId,
     cart,
     deliveryMethod,
     couponId,
   });
+
+
+  if (couponId) {
+    const coupon = await Coupon.findById(couponId);
+
+    try {
+      await validateCoupon({
+        userId,
+        coupon,
+        subtotal: subtotal,
+      });
+    } catch (couponError) {
+      issues.push({
+        code: "INVALID_COUPON",
+        message:
+          couponError.message || "Coupon requirements are no longer met.",
+      });
+    }
+  }
 
   //Wallet validation
   if (paymentMethod === "WALLET") {

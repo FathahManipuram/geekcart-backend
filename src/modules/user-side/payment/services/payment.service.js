@@ -4,8 +4,17 @@ import { razorpay } from "../../../../config/razorpay.config.js"
 import crypto from "crypto"
 
 export const createRazorpayOrderService= async({amount})=>{
+
+const razorpayAmount= Math.round(Number(amount) * 100)
+
+if (!Number.isInteger(razorpayAmount) || razorpayAmount <= 0) {
+  throw new AppError(
+    "Invalid payment amount calculation",
+    HTTP_STATUS.BAD_REQUEST,
+  );
+}
 	const options= {
-		amount: amount * 100,
+		amount: razorpayAmount,
 		currency: "INR",
 		receipt: `receipt_${Date.now()}`,
 	}

@@ -26,7 +26,6 @@ export const createOrderController = async (req, res, next) => {
 export const getOrderByIdController = async (req, res, next) => {
   try {
     const result = await getOrderByIdService({
-      userId: req.user.id,
       orderId: req.params.orderId,
     });
 

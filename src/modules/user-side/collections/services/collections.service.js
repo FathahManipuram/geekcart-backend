@@ -8,27 +8,18 @@ export const getCollectionsService = async (query) => {
   console.log("collection Service: ", query)
   const {
     page = 1,
-
     limit = 8,
-
     search = "",
-
     subcategory = [],
-
     sizes = [],
-
     colors = [],
-
     sortBy = "latest",
-
     minPrice = 0,
-
-    maxPrice = 999999,
+    maxPrice = 99999,
   } = query;
 
 
   const currentPage = Number(page);
-
   const perPage = Number(limit);
 
 
@@ -49,7 +40,6 @@ export const getCollectionsService = async (query) => {
   
   const productMatch = {
     isDeleted: false,
-
     isActive: true,
   };
 
@@ -67,13 +57,11 @@ export const getCollectionsService = async (query) => {
       $in: normalizedSubcategories.map((id) => new mongoose.Types.ObjectId(id)),
     };
 
-
    }
 
 
   const variantMatch = {
     isDeleted: false,
-
     isActive: true,
   };
 
@@ -136,6 +124,18 @@ export const getCollectionsService = async (query) => {
       lowestPrice: -1,
     };
   }
+
+  if (sortBy === "A-Z") {
+    sortStage = {
+      name: 1,
+    };
+  }
+
+    if (sortBy === "Z-A") {
+      sortStage = {
+        name: -1,
+      };
+    }
 
 
   const pipeline = [

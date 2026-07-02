@@ -2,24 +2,10 @@ import { HTTP_STATUS } from "../../../../common/constants/statusCode.js";
 import { AppError } from "../../../../common/utils/AppError.js";
 import { getCouponUsageByUser } from "./getCouponUsageByUser.js";
 
-export const validateCoupon = async({ userId, coupon, subtotal }) => {
+export const validateCoupon = async ({ userId, coupon, subtotal }) => {
   if (!coupon) {
     throw new AppError("Coupon not found", HTTP_STATUS.NOT_FOUND);
   }
-
-if (coupon.perUserLimit) {
-  const userUsageCount = await getCouponUsageByUser({
-    userId,
-    couponId: coupon._id,
-  });
-
-  if (userUsageCount >= coupon.perUserLimit) {
-    throw new AppError(
-      `You've already used this coupon. It can only be redeemed ${coupon.perUserLimit} ${coupon.perUserLimit === 1 ? 'time' : 'times'} per customer.`,
-      HTTP_STATUS.BAD_REQUEST,
-    );
-  }
-}
 
 
   if (!coupon.isActive) {
@@ -45,7 +31,20 @@ if (coupon.perUserLimit) {
     );
   }
 
-  
+
+  if (coupon.perUserLimit) {
+    const userUsageCount = await getCouponUsageByUser({
+      userId,
+      couponId: coupon._id,
+    });
+
+    if (userUsageCount >= coupon.perUserLimit) {
+      throw new AppError(
+        `You've already used this coupon. It can only be redeemed ${coupon.perUserLimit} ${coupon.perUserLimit === 1 ? "time" : "times"} per customer.`,
+        HTTP_STATUS.BAD_REQUEST,
+      );
+    }
+  }
 
   return true;
 };

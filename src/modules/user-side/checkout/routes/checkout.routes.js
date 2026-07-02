@@ -6,7 +6,9 @@ import { validatePaymentSchema, validateShippingSchema } from "../valdations/che
 
 const router= Router()
 
+// Validate before checkout
 router.post("/validate", authMiddleware, validateCheckoutController);
+
 router.post(
   "/shipping/validate",
   authMiddleware,

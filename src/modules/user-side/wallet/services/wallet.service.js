@@ -96,40 +96,37 @@ export const creditWallet = async ({
   reason,
   description,
   referenceId = null,
-}) => {
+}, options={}) => {
   let wallet = await Wallet.findOne({
     user: userId,
-  });
+  }).session(options.session || null)
 
   if (!wallet) {
-    wallet = await Wallet.create({
-      user: userId,
-    });
+    const [newWallet] = await Wallet.create([{user: userId}], options)
+   wallet = newWallet;
   }
 
   wallet.balance += amount;
 
-  await wallet.save();
+  await wallet.save(options);
 
-  const transaction = await WalletTransaction.create({
-    wallet: wallet._id,
+ const [transaction] = await WalletTransaction.create(
+   [
+     {
+       wallet: wallet._id,
+       user: userId,
+       type: "CREDIT",
+       amount,
+       reason,
+       description,
+       referenceId,
+       balanceAfterTransaction: wallet.balance,
+     },
+   ],
+   options,
+ )
 
-    user: userId,
-
-    type: "CREDIT",
-
-    amount,
-
-    reason,
-
-    description,
-
-    referenceId,
-
-    balanceAfterTransaction: wallet.balance,
-  });
-
-console.log("Wallet Credit", {
+console.log("Wallet Credit successfully", {
   userId,
   amount,
   reason,
@@ -147,12 +144,14 @@ export const debitWallet = async ({
   amount,
   reason,
   description,
-  referenceId = null,
-  session,
-}) => {
+  referenceId = null
+}, options={}) => {
+
+  const session = options.session || null;
+
   const wallet = await Wallet.findOne({
     user: userId,
-  });
+  }).session(session)
 
   if (!wallet) {
     throw new AppError("Wallet not found", HTTP_STATUS.NOT_FOUND);
@@ -164,25 +163,18 @@ export const debitWallet = async ({
 
   wallet.balance -= amount;
 
-  await wallet.save();
+  await wallet.save(options);
 
-  const transaction = await WalletTransaction.create({
+  const [transaction] = await WalletTransaction.create([{
     wallet: wallet._id,
-
     user: userId,
-
     type: "DEBIT",
-
     amount,
-
     reason,
-
     description,
-
     referenceId,
-
     balanceAfterTransaction: wallet.balance,
-  });
+  }], options);
 
   return {
     wallet,

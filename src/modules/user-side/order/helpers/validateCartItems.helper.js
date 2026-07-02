@@ -73,28 +73,6 @@ if(variant.stock < item.quantity){
   continue
 }
 
-  // const currentPrice = variant.salePrice ?? variant.price;
-
-  // const cartPrice = item.salePrice ?? item.price;
-
-  // if (currentPrice !== cartPrice) {
-  //   issues.push({
-  //     type: CHECKOUT_ISSUES.PRICE_CHANGED.code,
-
-  //     productId: item.productId,
-  //     variantId: item.variantId,
-
-  //     productName: item.name,
-  //     size: item.size,
-  //     color: item.color,
-  //     image: item.image,
-
-  //     oldPrice: cartPrice,
-  //     newPrice: currentPrice,
-  //     message: CHECKOUT_ISSUES.PRICE_CHANGED.message,
-  //   });
-  // }
-
 }
 
 	return{

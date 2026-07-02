@@ -10,6 +10,24 @@ export const getAddressesService= async (userId)=>{
 	}
 }
 
+//Get addressById
+export const getAddressByIdService= async(addressId)=>{
+	if(!addressId){
+		throw new AppError("Address id is not defined", HTTP_STATUS.BAD_REQUEST)
+	}
+
+	const address= await Address.findById(addressId)
+
+if(!address){
+	throw new AppError("Address not found", HTTP_STATUS.NOT_FOUND)
+}
+
+return {
+	message: "Address fetched successfully",
+	data: address
+}
+}
+
 //Create address
 export const createAddressService= async(userId, data)=>{
 	console.log("addservice: ", userId, data)
