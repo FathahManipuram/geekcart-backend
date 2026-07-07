@@ -272,9 +272,11 @@ export const adminRefreshTokenService = async ({ refreshToken }) => {
       accessToken: newAccessToken,
     },
   };
-};
-//Google login
+}
 
+
+
+//Google login
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 export const googleLoginService = async (token) => {
@@ -306,6 +308,11 @@ export const googleLoginService = async (token) => {
         },
       );
     }
+
+    if(user.isBlocked){
+      throw new AppError("User is blocked", HTTP_STATUS.BAD_REQUEST)
+    }
+    
   } else {
     user = await User.create({
       email,
