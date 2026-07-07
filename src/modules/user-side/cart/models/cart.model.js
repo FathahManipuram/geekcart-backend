@@ -25,7 +25,6 @@ const cartItemSchema = new mongoose.Schema(
       min: [1, "Quantity cannot be less than 1"],
       default: 1,
     },
-    //stock: { type: Number, default: 0 },
   },
   {
     _id: false,
@@ -54,32 +53,6 @@ const cartSchema = new mongoose.Schema(
   },
 );
 
-
-// cartSchema.pre("save", function (next) {
-//   if (!this.isModified("items")) return next();
-
-//   let subtotal = 0;
-//   let totalDiscount = 0;
-
-//   this.items.forEach((item) => {
-//     const itemPrice = item.price * item.quantity;
-//     const itemActualPrice = (item.salePrice ?? item.price) * item.quantity;
-
-//     subtotal += itemPrice;
-//     totalDiscount += itemPrice - itemActualPrice;
-//   });
-
-//   // Example shipping logic: Free shipping over ₹500, otherwise ₹40
-//   const shippingCharge =
-//     subtotal - totalDiscount > 500 || this.items.length === 0 ? 0 : 40;
-
-//   this.summary.subtotal = subtotal;
-//   this.summary.discount = totalDiscount;
-//   this.summary.shippingCharge = shippingCharge;
-//   this.summary.total = subtotal - totalDiscount + shippingCharge;
-
-//   next();
-// });
 
 
 export const Cart = mongoose.model("Cart", cartSchema);

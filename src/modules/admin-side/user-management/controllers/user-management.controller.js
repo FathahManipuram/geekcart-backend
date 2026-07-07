@@ -32,9 +32,7 @@ return successResponse(
 export const getUserByIdController = async(req, res, next)=>{
 	try{
 		const {userId} = req.params;
-		console.log("details params:", req.params)
-		console.log("userId", userId)
-
+	
 		const result= await getUserByIdService(userId)
 		console.log("result",result)
 		return successResponse(

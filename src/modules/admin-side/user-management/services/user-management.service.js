@@ -2,7 +2,9 @@ import { HTTP_STATUS } from "../../../../common/constants/statusCode.js";
 import { getUserById } from "../../../../common/services/user.services.js";
 import { AppError } from "../../../../common/utils/AppError.js";
 import { hashPassword } from "../../../../common/utils/encryption.js";
+import { Address } from "../../../user-side/address/models/address.model.js";
 import { User } from "../../../user-side/user-profile/models/user.model.js";
+import { Wallet } from "../../../user-side/wallet/models/wallet.model.js";
 
 export const getUserManagementService = async({
 	page, limit, search, status,
@@ -61,14 +63,23 @@ export const getUserManagementService = async({
 
 //Get user by id
 export const getUserByIdService= async(userId)=>{
-	const user= await getUserById(userId)
+
+
+const user= await getUserById(userId)
 
 	if(!user){
 		throw new AppError("User not found", HTTP_STATUS.NOT_FOUND)
 	}
+
+	const wallet = await Wallet.findOne({ user: userId }).lean()
+	const address= await Address.findOne({userId})
 	return {
 		message: "User fetched successfully",
-		data: user
+		data: {
+			user,
+			wallet,
+			address
+		}
 	}
 }
 
@@ -110,8 +121,10 @@ export const blockUserService= async(userId)=>{
 
 	return{
 		message: user.isBlocked
-		? "User is blocked"
-		: "User is unblocked",
+		// ? "User is blocked"
+		// : "User is unblocked",
+
+		? "USER_BLOCKED_SUCCESS" : "USER_UNBLOCKED_SUCCESS",
 		data: user
 	}
 }
