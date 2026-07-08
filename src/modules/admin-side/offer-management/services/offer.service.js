@@ -2,7 +2,6 @@ import { HTTP_STATUS } from "../../../../common/constants/statusCode.js";
 import { AppError } from "../../../../common/utils/AppError.js";
 import { Category } from "../../category-management/models/category.model.js";
 import { Product } from "../../product-management/models/product.model.js";
-import { Variant } from "../../product-management/models/variant.model.js";
 import { Subcategory } from "../../subcategory-management/models/subcategory.model.js";
 import { Offer } from "../models/offer.model.js";
 
@@ -17,7 +16,7 @@ export const createOfferService = async (payload) => {
     )
   }
 
-  let target = null;
+  let target;
 
   switch (offerType) {
     case "Product":
@@ -290,7 +289,7 @@ export const updateOfferService = async (offerId, payload) => {
   const offerType = payload.offerType || offer.offerType;
   const targetId = payload.targetId || offer.targetId;
 
-  let target = null;
+  let target ;
 
   switch (offerType) {
     case "Product":

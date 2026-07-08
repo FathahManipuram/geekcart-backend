@@ -1,5 +1,5 @@
 export const calculateOfferPrice = ({ price, offer }) => {
-  let discount = 0;
+  let discount;
 
   if (offer.discountType === "PERCENTAGE") {
     discount = (price * offer.discountValue) / 100;

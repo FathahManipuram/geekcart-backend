@@ -24,7 +24,7 @@ export const allocateCouponDiscount = ({
   let allocated = 0;
 
   return items.map((item, index) => {
-    let couponDiscount = 0;
+    let couponDiscount;
 
     if (index === items.length - 1) {
       couponDiscount = Number((totalCouponDiscount - allocated).toFixed(2));

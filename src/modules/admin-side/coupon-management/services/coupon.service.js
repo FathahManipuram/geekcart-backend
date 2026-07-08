@@ -1,6 +1,5 @@
 import { HTTP_STATUS } from "../../../../common/constants/statusCode.js";
 import { AppError } from "../../../../common/utils/AppError.js";
-import { isActive } from "../../../../common/validation/base.validation.js";
 import { Order } from "../../../user-side/order/models/order.model.js";
 import { Coupon } from "../models/coupon.model.js";
 
@@ -60,7 +59,7 @@ export const getCouponService = async ({
 
   const now = new Date();
 
-  // ✅ FIX 2: Added startDate condition to make ACTIVE pristine
+
   if (status === "ACTIVE") {
     query.isActive = true;
     query.startDate = { $lte: now };
@@ -99,11 +98,11 @@ export const getCouponService = async ({
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(Number(limit)),
-      // .lean(), // Recommended for performance
+      // .lean(),
 
     Coupon.countDocuments(query),
 
-    // Clean historical active tally
+   
     Coupon.countDocuments({
       isDeleted: false,
       isActive: true,
@@ -111,20 +110,20 @@ export const getCouponService = async ({
       expiryDate: { $gt: now }
     }),
 
-    // Clean historical expired tally
+
     Coupon.countDocuments({
       isDeleted: false,
       isActive: true,
       expiryDate: { $lt: now }
     }),
 
-    // Most used coupon
+  
     Coupon.findOne({ isDeleted: false })
       .sort({ usedCount: -1 })
       .select("code -_id")
       .lean(),
 
-    // ✅ FIX 3: Capturing discounts across modified checkout payment records
+   
     Order.aggregate([
       {
         $match: {
@@ -141,7 +140,7 @@ export const getCouponService = async ({
     ])
   ]);
 
-  // ✅ FIX 1: Safe extraction using optional chaining to prevent crash on empty orders
+
   const discountGiven = givenDiscount[0]?.total || 0;
 
   return {
@@ -202,8 +201,6 @@ for (const [key, value] of entries) {
     coupon[key] = value;
 
 }
-
-  //Object.assign(coupon, payload);
 
   await coupon.save();
 

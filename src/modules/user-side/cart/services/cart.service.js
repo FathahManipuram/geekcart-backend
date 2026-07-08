@@ -1,14 +1,10 @@
-// import { Cart } from "../models/cart.model.js";
 
 import { HTTP_STATUS } from "../../../../common/constants/statusCode.js";
 import { AppError } from "../../../../common/utils/AppError.js";
 import { Variant } from "../../../admin-side/product-management/models/variant.model.js";
-import { calculateBestOffer } from "../../offer/helpers/calculateBestOffer.helper.js";
 import { getActiveOffers } from "../../offer/helpers/getActiveOffers.helper.js";
 import { getVariantWithOffer } from "../../offer/helpers/getVariantWithOffer.helper.js";
-import { Wishlist } from "../../wishlist/models/wishlist.model.js";
 import { removeWishlistService } from "../../wishlist/services/wishlist.service.js";
-import { applyOffersToCartItems } from "../helpers/applyOffersToCartItems.helper.js";
 import { calculateCartSummary } from "../helpers/cart.helper.js";
 import { syncCartPricesAndOffers } from "../helpers/syncCartPrices.helper.js";
 import { Cart } from "../models/cart.model.js";

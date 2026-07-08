@@ -160,7 +160,7 @@ export const createUserService= async(data)=>{
 
 //Update user
 export const updateUserService= async(userId, data)=>{
-	const {fullName, email, role}= data;
+	const { fullName: _fullName, role: _role, email } = data;
 	const user= await getUserById(userId)
 console.log(user)
 	if(!user){

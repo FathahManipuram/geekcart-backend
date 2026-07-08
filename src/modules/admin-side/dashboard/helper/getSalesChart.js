@@ -8,12 +8,11 @@ export const getSalesChart = async (type = "monthly") => {
     paymentStatus: { $in: ["PAID", "PARTIALLY_REFUNDED", "FULLY_REFUNDED"] },
   };
 
-  // 1. Inject appropriate date filtering scopes
+
   Object.assign(filters, buildDateFilter({ type }));
 
-  // 2. Define dynamic grouping and sorting contexts
-  let groupExpression = {};
-  let sortExpression = {};
+  let groupExpression;
+  let sortExpression;
 
   if (type === "daily" || type === "today") {
     groupExpression = {
@@ -47,10 +46,10 @@ export const getSalesChart = async (type = "monthly") => {
   const salesChart = await Order.aggregate([
     { $match: filters },
     {
-      // 3. Project safe arrays and clean item-level reductions
+
       $project: {
         createdAt: 1,
-        // Only apply coupon discount if the order actually contains successful item elements
+        
         couponDiscount: {
           $cond: [
             {
@@ -126,7 +125,7 @@ export const getSalesChart = async (type = "monthly") => {
                         },
                       ],
                     },
-                    // FIX: Multiply offer discount by quantity
+                   
                     {
                       $multiply: [
                         "$$this.appliedOffer.discountAmount",
@@ -162,7 +161,7 @@ export const getSalesChart = async (type = "monthly") => {
       },
     },
     {
-      // 4. Compute realistic Net Sales per order (Ensuring it never drops below 0)
+
       $project: {
         createdAt: 1,
         netSalesInOrder: {
@@ -192,7 +191,7 @@ export const getSalesChart = async (type = "monthly") => {
     },
     { $sort: sortExpression },
     {
-      // 5. Output clean semantic property names
+
       $project: {
         _id: 0,
         label: "$_id.label",
@@ -201,7 +200,7 @@ export const getSalesChart = async (type = "monthly") => {
     },
   ]);
 
-  // 6. Complete zero-fill layouts for all filter timelines
+
   if (type === "monthly") {
     const monthNames = [
       "Jan",
@@ -228,7 +227,7 @@ export const getSalesChart = async (type = "monthly") => {
   }
 
   if (type === "daily" || type === "today") {
-    // Generate full 24-hour cycle map [00:00 to 23:00]
+   
     const hours = Array.from(
       { length: 24 },
       (_, i) => `${String(i).padStart(2, "0")}:00`,

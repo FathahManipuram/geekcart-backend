@@ -77,6 +77,7 @@ export const getWishlistService = async (userId) => {
     wishlistProducts = wishlist.products.filter((item) => {
       if (!item.variantId) return false;
 
+
       const isInCart = cartVariantIds.has(item.variantId._id.toString());
       if (isInCart) {
         itemsToRemove.push(item.variantId._id);
@@ -99,7 +100,7 @@ export const getWishlistService = async (userId) => {
     const offers = await getActiveOffers();
 
 
-const formattedProducts = wishlist.products.map((item) => {
+const formattedProducts = wishlistProducts.map((item) => {
 
   if (!item.productId || !item.variantId) return item;
 
@@ -125,10 +126,12 @@ const formattedProducts = wishlist.products.map((item) => {
   };
 });
 
-wishlist.products = formattedProducts;
   return {
     message: "Wishlist fetched successfully",
-    data: wishlist || { products: [] },
+    data: {
+      ...wishlist.toObject(),
+      products: formattedProducts,
+    },
   };
 };
 

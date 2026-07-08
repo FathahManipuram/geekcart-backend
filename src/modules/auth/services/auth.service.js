@@ -33,7 +33,7 @@ export const registerUser = async (data) => {
 
   const hashedPassword = await hashPassword(password);
 
-  const { confirmPassword, ...userData } = data;
+  const { confirmPassword: _confirmPassword, ...userData } = data;
 
   
 let referredBy = null;

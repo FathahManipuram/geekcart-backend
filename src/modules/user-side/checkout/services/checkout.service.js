@@ -9,8 +9,6 @@ import { Variant } from "../../../admin-side/product-management/models/variant.m
 import { Address } from "../../address/models/address.model.js";
 import { Cart } from "../../cart/models/cart.model.js";
 import { validateCoupon } from "../../coupon/helper/validateCoupon.helper.js";
-import { applyCouponService } from "../../coupon/services/userCoupon.service.js";
-import { getVariantWithOffer } from "../../offer/helpers/getVariantWithOffer.helper.js";
 import { calculateCheckoutSummary } from "../../order/helpers/calculateCheckoutSummary.js";
 import { validateCartItems } from "../../order/helpers/validateCartItems.helper.js";
 import { Wallet } from "../../wallet/models/wallet.model.js";
@@ -193,7 +191,7 @@ export const validateCheckoutService = async (userId) => {
 export const validateShippingService = async ({
   userId,
   addressId,
-  deliveryMethod,
+  deliveryMethod: _deliveryMethod,
 }) => {
   const issues = [];
 

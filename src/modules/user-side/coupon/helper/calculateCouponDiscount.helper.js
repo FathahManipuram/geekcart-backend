@@ -1,5 +1,5 @@
 export const calculateCouponDiscount = ({ coupon, subtotal }) => {
-  let discount = 0;
+  let discount;
 
   if (coupon.discountType === "PERCENTAGE") {
     discount = (subtotal * coupon.discountValue) / 100;
