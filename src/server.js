@@ -5,7 +5,7 @@ import app from "../src/app.js"
 import connectDB from './infrastructure/database/connection.js'
 
 
-const PORT= process.env.PORT 
+const PORT= process.env.PORT || 5000
 const StartServer= async()=>{
 	try{
 		app.listen(PORT, ()=>{

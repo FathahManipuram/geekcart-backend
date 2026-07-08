@@ -8,11 +8,7 @@ const app= express()
 
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:4173",
-      "https://s1t1309c-5173.inc1.devtunnels.ms",
-    ],
+    origin: process.env.CLIENT_URLS.split(","),
     credentials: true,
   }),
 );
