@@ -33,29 +33,28 @@ export const validateCheckoutService = async (userId) => {
     };
   }
 
-    const productIds = cart.items.map((item) => item.productId);
-    const variantIds = cart.items.map((item) => item.variantId);
+  const productIds = cart.items.map((item) => item.productId);
+  const variantIds = cart.items.map((item) => item.variantId);
 
-   const [products, variants] = await Promise.all([
-     Product.find({
-       _id: { $in: productIds },
-       isDeleted: false,
-     }),
+  const [products, variants] = await Promise.all([
+    Product.find({
+      _id: { $in: productIds },
+      isDeleted: false,
+    }),
 
-     Variant.find({
-       _id: { $in: variantIds },
-       isDeleted: false,
-     }),
-   ]);
+    Variant.find({
+      _id: { $in: variantIds },
+      isDeleted: false,
+    }),
+  ]);
 
+  const productMap = new Map(
+    products.map((product) => [product._id.toString(), product]),
+  );
 
-     const productMap = new Map(
-       products.map((product) => [product._id.toString(), product]),
-     )
-
-      const variantMap = new Map(
-        variants.map((variant) => [variant._id.toString(), variant]),
-      );
+  const variantMap = new Map(
+    variants.map((variant) => [variant._id.toString(), variant]),
+  );
 
   for (const item of cart.items) {
     const product = productMap.get(item.productId.toString());
@@ -106,7 +105,6 @@ export const validateCheckoutService = async (userId) => {
 
       continue;
     }
-
 
     if (variant.product.toString() !== item.productId.toString()) {
       issues.push({
@@ -169,8 +167,6 @@ export const validateCheckoutService = async (userId) => {
         requestedQuantity: item.quantity,
       });
     }
-
-
   }
 
   return {
@@ -185,7 +181,6 @@ export const validateCheckoutService = async (userId) => {
     },
   };
 };
-
 
 //Validate shipping
 export const validateShippingService = async ({
@@ -220,8 +215,6 @@ export const validateShippingService = async ({
   };
 };
 
-
-
 //Validate payment
 export const validatePaymentService = async ({
   userId,
@@ -229,39 +222,25 @@ export const validatePaymentService = async ({
   deliveryMethod,
   couponId,
 }) => {
-
   const issues = [];
 
   if (!paymentMethod) {
     issues.push({
       code: PAYMENT_ISSUES.INVALID_PAYMENT_METHOD.code,
       message: PAYMENT_ISSUES.INVALID_PAYMENT_METHOD.message,
-    })
-    
+    });
   }
 
-const [cart, wallet] = await Promise.all([
-  Cart.findOne({ userId }),
-  paymentMethod === "WALLET"
-    ? Wallet.findOne({ user: userId })
-    : Promise.resolve(null),
-]);
+  const [cart, wallet] = await Promise.all([
+    Cart.findOne({ userId }),
+    paymentMethod === "WALLET"
+      ? Wallet.findOne({ user: userId })
+      : Promise.resolve(null),
+  ]);
 
-   if (!cart || !cart.items.length) {
-     throw new AppError("Cart is empty", HTTP_STATUS.BAD_REQUEST);
-   }
-
-// let coupon = null;
-// if (couponId) {
-//   coupon = await Coupon.findById(couponId);
-
-//   await validateCoupon({
-//     userId,
-//     coupon,
-//     subtotal: cart.summary.subtotal,
-//   });
-// }
-
+  if (!cart || !cart.items.length) {
+    throw new AppError("Cart is empty", HTTP_STATUS.BAD_REQUEST);
+  }
 
   const { finalTotal, subtotal } = await calculateCheckoutSummary({
     userId,
@@ -269,7 +248,6 @@ const [cart, wallet] = await Promise.all([
     deliveryMethod,
     couponId,
   });
-
 
   if (couponId) {
     const coupon = await Coupon.findById(couponId);
@@ -291,7 +269,6 @@ const [cart, wallet] = await Promise.all([
 
   //Wallet validation
   if (paymentMethod === "WALLET") {
-
     if (!wallet) {
       issues.push({
         code: PAYMENT_ISSUES.WALLET_NOT_FOUND.code,
@@ -337,7 +314,6 @@ const [cart, wallet] = await Promise.all([
   };
 };
 
-
 // final validation
 export const validateFinalCheckoutService = async ({
   userId,
@@ -352,23 +328,22 @@ export const validateFinalCheckoutService = async ({
     throw new AppError("Cart is empty", HTTP_STATUS.BAD_REQUEST);
   }
 
-
   const cartValidation = await validateCartItems(cart.items);
 
-//cart validation
+  //cart validation
   if (!cartValidation.valid) {
     throw new AppError(
       "Checkout validation failed",
       HTTP_STATUS.BAD_REQUEST,
       cartValidation.issues,
-    )
+    );
   }
 
   // Shipping Validation
   const shippingValidation = await validateShippingService({
     userId,
     addressId,
-    deliveryMethod
+    deliveryMethod,
   });
 
   if (!shippingValidation.data.valid) {
@@ -395,21 +370,13 @@ export const validateFinalCheckoutService = async ({
     );
   }
 
-  // // Final recalculation
-  // const summary = await calculateCheckoutSummary({
-  //   userId,
-  //   cart,
-  //   deliveryMethod,
-  //   couponId,
-  // });
-
   return {
     message: "Checkout validated successfully",
 
     data: {
       valid: true,
 
-     // summary,
+      // summary,
     },
   };
 };

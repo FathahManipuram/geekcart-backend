@@ -6,179 +6,171 @@ import { Address } from "../../../user-side/address/models/address.model.js";
 import { User } from "../../../user-side/user-profile/models/user.model.js";
 import { Wallet } from "../../../user-side/wallet/models/wallet.model.js";
 
-export const getUserManagementService = async({
-	page, limit, search, status,
-})=>{
-	const skip = (page-1)* limit;
-	const query= search ?{
-		$or :[{
-			fullName:{
-				$regex: search,
-				$options: "i",
-			},
+export const getUserManagementService = async ({
+  page,
+  limit,
+  search,
+  status,
+}) => {
+  const skip = (page - 1) * limit;
+  const query = search
+    ? {
+        $or: [
+          {
+            fullName: {
+              $regex: search,
+              $options: "i",
+            },
+          },
+          {
+            email: {
+              $regex: search,
+              $options: "i",
+            },
+          },
+        ],
+      }
+    : {};
 
-		},
-		{
-			email: {
-			$regex: search,
-			$options: "i",
-		},
-		},
-		],
-	} :{}
+  if (status === "active") {
+    query.isBlocked = false;
+  }
 
-	if(status==="active"){
-		query.isBlocked= false
-	}
+  if (status === "blocked") {
+    query.isBlocked = true;
+  }
 
-	if(status==="blocked"){
-		query.isBlocked= true
-	}
+  const users = await User.find(query)
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit);
 
-	const users= await User.find(query).sort({createdAt: -1})
-	.skip(skip)
-	.limit(limit);
+  const totalUsers = await User.countDocuments(query);
+  const activeUsers = await User.countDocuments({ ...query, isBlocked: false });
+  const blockedUsers = await User.countDocuments({ ...query, isBlocked: true });
+  const totalAdmins = await User.countDocuments({ ...query, role: "admin" });
 
-	const totalUsers= await User.countDocuments(query)
-	const activeUsers= await User.countDocuments({...query, isBlocked: false})
-	const blockedUsers= await User.countDocuments({...query, isBlocked: true})
-	const totalAdmins= await User.countDocuments({...query, role:"admin"})
-
-	return {
-		message: "Users fetched successfully",
-		data: {
-			users,
-			totalUsers,
-			activeUsers,
-			blockedUsers,
-			totalAdmins,
-			totalPages: Math.ceil(totalUsers/limit),
-			currentPage: page,
-
-		}
-	}
-}
-
-
+  return {
+    message: "Users fetched successfully",
+    data: {
+      users,
+      totalUsers,
+      activeUsers,
+      blockedUsers,
+      totalAdmins,
+      totalPages: Math.ceil(totalUsers / limit),
+      currentPage: page,
+    },
+  };
+};
 
 //Get user by id
-export const getUserByIdService= async(userId)=>{
+export const getUserByIdService = async (userId) => {
+  const user = await getUserById(userId);
 
+  if (!user) {
+    throw new AppError("User not found", HTTP_STATUS.NOT_FOUND);
+  }
 
-const user= await getUserById(userId)
-
-	if(!user){
-		throw new AppError("User not found", HTTP_STATUS.NOT_FOUND)
-	}
-
-	const wallet = await Wallet.findOne({ user: userId }).lean()
-	const address= await Address.findOne({userId})
-	return {
-		message: "User fetched successfully",
-		data: {
-			user,
-			wallet,
-			address
-		}
-	}
-}
+  const wallet = await Wallet.findOne({ user: userId }).lean();
+  const address = await Address.findOne({ userId });
+  return {
+    message: "User fetched successfully",
+    data: {
+      user,
+      wallet,
+      address,
+    },
+  };
+};
 
 //Delete User
-export const deleteUserService= async(userId)=>{
-	const user= await getUserById(userId)
+export const deleteUserService = async (userId) => {
+  const user = await getUserById(userId);
 
-	if(!user){
-		throw new AppError("User not found", HTTP_STATUS.NOT_FOUND)
-	}
+  if (!user) {
+    throw new AppError("User not found", HTTP_STATUS.NOT_FOUND);
+  }
 
-	if(user.role==="admin"){
-		throw new AppError("Admin users cannot be deleted", HTTP_STATUS.FORBIDDEN)
-	}
-	
-	await User.findByIdAndDelete(userId)
-	
+  if (user.role === "admin") {
+    throw new AppError("Admin users cannot be deleted", HTTP_STATUS.FORBIDDEN);
+  }
 
-	return {
+  await User.findByIdAndDelete(userId);
+
+  return {
     message: "User deleted successfully",
   };
-}
-
+};
 
 //Block User
-export const blockUserService= async(userId)=>{
-	const user= await getUserById(userId)
+export const blockUserService = async (userId) => {
+  const user = await getUserById(userId);
 
-	if(!user){
-		throw new AppError("User not found", HTTP_STATUS.NOT_FOUND)
-	}
+  if (!user) {
+    throw new AppError("User not found", HTTP_STATUS.NOT_FOUND);
+  }
 
-	if(user.role==="admin"){
-		throw new AppError("Admin cannot be blocked", HTTP_STATUS.BAD_REQUEST)
-	}
+  if (user.role === "admin") {
+    throw new AppError("Admin cannot be blocked", HTTP_STATUS.BAD_REQUEST);
+  }
 
-	user.isBlocked = !user.isBlocked
-	await user.save()
+  user.isBlocked = !user.isBlocked;
+  await user.save();
 
-	return{
-		message: user.isBlocked
-		// ? "User is blocked"
-		// : "User is unblocked",
-
-		? "USER_BLOCKED_SUCCESS" : "USER_UNBLOCKED_SUCCESS",
-		data: user
-	}
-}
-
+  return {
+    message: user.isBlocked ? "USER_BLOCKED_SUCCESS" : "USER_UNBLOCKED_SUCCESS",
+    data: user,
+  };
+};
 
 //Create user
-export const createUserService= async(data)=>{
-	const {fullName, email, password, role}= data
-	const isExistingUser = await User.findOne({email}) 
+export const createUserService = async (data) => {
+  const { fullName, email, password, role } = data;
+  const isExistingUser = await User.findOne({ email });
 
-	if(isExistingUser){
-		throw new AppError("Email already exists", HTTP_STATUS.CONFLICT)
-	}
+  if (isExistingUser) {
+    throw new AppError("Email already exists", HTTP_STATUS.CONFLICT);
+  }
 
-	const hashedPassword= await hashPassword(password)
+  const hashedPassword = await hashPassword(password);
 
-	const user= await User.create({
-		fullName,
-		email,
-		password: hashedPassword,
-		role: role || "user",
-		isVerified: true,
-		provider: "local"	,
-	})
+  const user = await User.create({
+    fullName,
+    email,
+    password: hashedPassword,
+    role: role || "user",
+    isVerified: true,
+    provider: "local",
+  });
 
-	return {
-		message: "User created successfully",
-		data: user,
-	}
-	
-}
-
+  return {
+    message: "User created successfully",
+    data: user,
+  };
+};
 
 //Update user
-export const updateUserService= async(userId, data)=>{
-	const { fullName: _fullName, role: _role, email } = data;
-	const user= await getUserById(userId)
-console.log(user)
-	if(!user){
-		throw new AppError("User not found", HTTP_STATUS.NOT_FOUND)
-	}
+export const updateUserService = async (userId, data) => {
+  const { fullName: _fullName, role: _role, email } = data;
+  const user = await getUserById(userId);
 
-	if(email!==user.email){
-		const isExistingEmail= await User.findOne({email})
+  if (!user) {
+    throw new AppError("User not found", HTTP_STATUS.NOT_FOUND);
+  }
 
-		if(isExistingEmail){
-			throw new AppError("Email already exists", HTTP_STATUS.CONFLICT)
-		}
-	}
+  if (email !== user.email) {
+    const isExistingEmail = await User.findOne({ email });
 
-	const updatedUser= await User.findByIdAndUpdate(userId, data, {new: true})
+    if (isExistingEmail) {
+      throw new AppError("Email already exists", HTTP_STATUS.CONFLICT);
+    }
+  }
 
-return {
-	message: "User updated successfully",
-	data: updatedUser,
-}
-}
+  const updatedUser = await User.findByIdAndUpdate(userId, data, { new: true });
+
+  return {
+    message: "User updated successfully",
+    data: updatedUser,
+  };
+};

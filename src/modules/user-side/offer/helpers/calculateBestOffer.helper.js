@@ -1,8 +1,6 @@
 import { calculateOfferPrice } from "./calculateOfferPrice.helper.js";
 
-
 export const calculateBestOffer = ({ product, offers, price }) => {
-
   const matchedOffers = offers.filter((offer) => {
     switch (offer.offerType) {
       case "Product":

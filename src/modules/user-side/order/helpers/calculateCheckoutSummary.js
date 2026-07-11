@@ -1,4 +1,3 @@
-
 import { Coupon } from "../../../admin-side/coupon-management/models/coupon.model.js";
 import { applyOffersToCartItems } from "../../cart/helpers/applyOffersToCartItems.helper.js";
 import { calculateCartSummary } from "../../cart/helpers/cart.helper.js";
@@ -6,7 +5,6 @@ import { allocateCouponDiscount } from "../../coupon/helper/allocateCouponDiscou
 import { calculateCouponDiscount } from "../../coupon/helper/calculateCouponDiscount.helper.js";
 import { validateCoupon } from "../../coupon/helper/validateCoupon.helper.js";
 import { getActiveOffers } from "../../offer/helpers/getActiveOffers.helper.js";
-
 
 export const calculateCheckoutSummary = async ({
   userId,
@@ -31,7 +29,6 @@ export const calculateCheckoutSummary = async ({
 
   if (couponId) {
     const coupon = await Coupon.findById(couponId, null, { session });
-
 
     if (coupon) {
       await validateCoupon({
@@ -62,7 +59,6 @@ export const calculateCheckoutSummary = async ({
   const finalTotal = Math.max(0, total - couponDiscount);
 
   return {
-
     recalculatedItems: itemsWithCouponAllocation,
     subtotal,
     discount,

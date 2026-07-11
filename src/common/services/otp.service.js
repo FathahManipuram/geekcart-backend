@@ -15,8 +15,8 @@ export const createOtp = async ({
 }) => {
   await Otp.deleteMany({ email, type, ...(userId && { userId }) });
   const otp = generateOtp();
-  const hashedOtp= await hashOtp(otp)
-  console.log("Otp generated: ", otp);
+  const hashedOtp = await hashOtp(otp);
+
   await Otp.create({
     userId,
     email,
@@ -32,7 +32,6 @@ export const createOtp = async ({
 
 //Verify OTP
 export const verifyOtp = async ({ userId, email, otp, type }) => {
-
   const query = { email, type };
 
   if (userId) {
@@ -40,9 +39,11 @@ export const verifyOtp = async ({ userId, email, otp, type }) => {
   }
 
   const record = await Otp.findOne(query).sort({ createdAt: -1 });
-  
-  if (!record) throw new AppError("OTP expired or Invalid", HTTP_STATUS.BAD_REQUEST);
-  if (record.attemptCount >= record.maxAttempt) throw new AppError(
+
+  if (!record)
+    throw new AppError("OTP expired or Invalid", HTTP_STATUS.BAD_REQUEST);
+  if (record.attemptCount >= record.maxAttempt)
+    throw new AppError(
       "Too many attempts, Try later",
       HTTP_STATUS.TOO_MANY_REQUESTS,
     );
@@ -64,15 +65,10 @@ export const verifyOtp = async ({ userId, email, otp, type }) => {
   await Otp.deleteOne({ _id: record._id });
 
   return record;
-}
+};
 
 //Resend OTP
-export const resendOtp = async ({
-  userId,
-  email,
-  type,
-  meta = {},
-}) => {
+export const resendOtp = async ({ userId, email, type, meta = {} }) => {
   let user = null;
   if (userId) {
     user = await getUserById(userId);
@@ -90,8 +86,10 @@ export const resendOtp = async ({
     throw new AppError("User already verified", HTTP_STATUS.BAD_REQUEST);
   }
 
-const existingOtp= await Otp.findOne({email, type}).sort({createdAt: -1})
-const preservedPayload= existingOtp ? existingOtp.payload : {}
+  const existingOtp = await Otp.findOne({ email, type }).sort({
+    createdAt: -1,
+  });
+  const preservedPayload = existingOtp ? existingOtp.payload : {};
 
   await Otp.deleteMany({ email, type });
 

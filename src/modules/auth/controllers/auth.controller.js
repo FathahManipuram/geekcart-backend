@@ -6,7 +6,6 @@ import {
 } from "../../../common/utils/cookie.js";
 import * as authService from "../services/auth.service.js";
 
-
 //Register
 export const registerController = async (req, res, next) => {
   try {
@@ -42,9 +41,9 @@ export const loginController = async (req, res, next) => {
   try {
     const result = await authService.loginUser(req.body);
     setRefreshTokenCookie(res, result.data.refreshToken, "user");
-    console.log(result);
+
     delete result.data.refreshToken;
-    console.log(result);
+
     return successResponse(res, HTTP_STATUS.OK, result.message, result.data);
   } catch (err) {
     next(err);
@@ -54,9 +53,8 @@ export const loginController = async (req, res, next) => {
 //Forgot-Password
 export const forgotPasswordController = async (req, res, next) => {
   try {
-    console.log("forgotController: ", req.body);
     const result = await authService.forgotPassword(req.body);
-    console.log("controlerresultforgot:", result);
+
     return successResponse(res, HTTP_STATUS.OK, result.message);
   } catch (err) {
     next(err);
@@ -124,10 +122,8 @@ export const adminRefreshTokenController = async (req, res, next) => {
 
 export const googleLoginController = async (req, res, next) => {
   try {
-    console.log("GoogleCOntro: ", req.body);
     const { token } = req.body;
     const result = await authService.googleLoginService(token);
-    console.log("ResultControGool", result);
     setRefreshTokenCookie(res, result.data.refreshToken, "user");
     delete result.data.refreshToken;
 

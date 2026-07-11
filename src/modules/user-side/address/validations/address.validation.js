@@ -1,8 +1,17 @@
 import Joi from "joi";
-import { addressLabel, addressLine, city, country, fullName, landmark, phoneNumber, pincode, state } from "../../../../common/validation/address.base.js";
+import {
+  addressLabel,
+  addressLine,
+  city,
+  country,
+  fullName,
+  landmark,
+  phoneNumber,
+  pincode,
+  state,
+} from "../../../../common/validation/address.base.js";
 
-
-export const createAddressSchema= Joi.object({
+export const createAddressSchema = Joi.object({
   fullName: fullName.required(),
   phoneNumber: phoneNumber.required(),
   addressLine: addressLine.required(),
@@ -13,7 +22,7 @@ export const createAddressSchema= Joi.object({
   pincode: pincode.required(),
   addressLabel,
   isDefault: Joi.boolean(),
-})
+});
 
 export const updateAddressSchema = Joi.object({
   fullName,
@@ -27,7 +36,6 @@ export const updateAddressSchema = Joi.object({
   addressLabel,
   isDefault: Joi.boolean(),
 });
-
 
 export const addressIdParamSchema = Joi.object({
   id: Joi.string().required(),

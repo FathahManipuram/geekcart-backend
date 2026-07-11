@@ -1,6 +1,5 @@
 import { model, Schema, Types } from "mongoose";
 
-
 const variantSchema = new Schema(
   {
     product: {
@@ -65,7 +64,7 @@ const variantSchema = new Schema(
 );
 
 variantSchema.index(
-  {sku: 1},
+  { sku: 1 },
   {
     unique: true,
     partialFilterExpression: { isDeleted: false },
@@ -74,14 +73,14 @@ variantSchema.index(
 
 variantSchema.index(
   { product: 1, color: 1, size: 1 },
-  { unique: true, partialFilterExpression: { isDeleted: false } }
+  { unique: true, partialFilterExpression: { isDeleted: false } },
 );
 
 variantSchema.index({
-	product: 1,
-	stock: 1,
-	isActive: 1,
-	isDeleted: 1,
-})
+  product: 1,
+  stock: 1,
+  isActive: 1,
+  isDeleted: 1,
+});
 
-export const Variant= model("Variant", variantSchema)
+export const Variant = model("Variant", variantSchema);

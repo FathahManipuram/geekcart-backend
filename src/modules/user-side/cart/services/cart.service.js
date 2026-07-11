@@ -1,4 +1,3 @@
-
 import { HTTP_STATUS } from "../../../../common/constants/statusCode.js";
 import { AppError } from "../../../../common/utils/AppError.js";
 import { Variant } from "../../../admin-side/product-management/models/variant.model.js";
@@ -8,7 +7,6 @@ import { removeWishlistService } from "../../wishlist/services/wishlist.service.
 import { calculateCartSummary } from "../helpers/cart.helper.js";
 import { syncCartPricesAndOffers } from "../helpers/syncCartPrices.helper.js";
 import { Cart } from "../models/cart.model.js";
-
 
 // Add to cart
 export const addToCartService = async (userId, variantId, quantity) => {
@@ -114,20 +112,17 @@ export const addToCartService = async (userId, variantId, quantity) => {
 
   await activeCart.save();
 
-try {
-  await removeWishlistService(userId, variantId, true);
-} catch (wishlistError) {
-  console.error("Silent wishlist cleanup failed:", wishlistError);
-}
-
+  try {
+    await removeWishlistService(userId, variantId, true);
+  } catch (wishlistError) {
+    console.error("Silent wishlist cleanup failed:", wishlistError);
+  }
 
   return {
     message: "Added to cart successfully",
     data: activeCart,
   };
-};;
-
-
+};
 
 // Get cart
 export const getCartService = async (userId) => {
@@ -160,7 +155,6 @@ export const getCartService = async (userId) => {
 
   const offers = await getActiveOffers();
 
-
   const { changes } = await syncCartPricesAndOffers(cart, offers);
 
   const summary = calculateCartSummary(cart.items);
@@ -175,14 +169,13 @@ export const getCartService = async (userId) => {
   };
 };
 
-
 //Upadte cart quantity
-export const updateCartQuantityService= async({
-  userId, variantId, quantity
-})=>{
-
-  console.log("servi", userId, variantId, quantity)
-  if(quantity < 1){
+export const updateCartQuantityService = async ({
+  userId,
+  variantId,
+  quantity,
+}) => {
+  if (quantity < 1) {
     throw new AppError("Quantity must be at least 1", HTTP_STATUS.BAD_REQUEST);
   }
 
@@ -190,98 +183,92 @@ export const updateCartQuantityService= async({
     throw new AppError("Maximum quantity is 5", HTTP_STATUS.BAD_REQUEST);
   }
 
+  const [cart, variant] = await Promise.all([
+    Cart.findOne({ userId }),
+    Variant.findOne({ _id: variantId, isDeleted: false, isActive: true }),
+  ]);
 
-const [cart, variant] = await Promise.all([
-  Cart.findOne({userId}),
-  Variant.findOne({_id: variantId, isDeleted: false, isActive: true})
-
-])
-   
   if (!cart) {
     throw new AppError("Cart not found", HTTP_STATUS.NOT_FOUND);
   }
 
-   if (!variant) {
-     throw new AppError("Variant not found", HTTP_STATUS.NOT_FOUND);
-   }
-
-   const item = cart.items.find(
-     (item) => item.variantId.toString() === variantId.toString(),
-   );
-
- if (!item) {
-   throw new AppError("Cart item not found", HTTP_STATUS.NOT_FOUND);
- }
-
-
-if(quantity > variant.stock){
-  throw new AppError(
-    `Insufficient stock. Only ${variant.stock} units left.`,
-    HTTP_STATUS.BAD_REQUEST,
-  );
-}
-
-item.quantity = quantity
-item.stock = variant.stock
-item.price= variant.price;
-item.salePrice= variant.salePrice
-
-cart.summary= calculateCartSummary(cart.items)
-
-await cart.save()
-
-return {
-  message: "Cart quantity updated successfully",
-  data: cart,
-};
-
-}
-
-
-// Remove from cart
-export const removeCartItemService= async({userId, variantId})=>{
-  const cart= await Cart.findOne({userId})
-
-  if(!cart){
-     throw new AppError("Cart not found", HTTP_STATUS.NOT_FOUND);
+  if (!variant) {
+    throw new AppError("Variant not found", HTTP_STATUS.NOT_FOUND);
   }
 
-  cart.items= cart.items.filter((item)=>
-  item.variantId.toString() !==variantId
-  )
+  const item = cart.items.find(
+    (item) => item.variantId.toString() === variantId.toString(),
+  );
 
-  cart.summary= calculateCartSummary(cart.items)
+  if (!item) {
+    throw new AppError("Cart item not found", HTTP_STATUS.NOT_FOUND);
+  }
 
-  await cart.save()
+  if (quantity > variant.stock) {
+    throw new AppError(
+      `Insufficient stock. Only ${variant.stock} units left.`,
+      HTTP_STATUS.BAD_REQUEST,
+    );
+  }
+
+  item.quantity = quantity;
+  item.stock = variant.stock;
+  item.price = variant.price;
+  item.salePrice = variant.salePrice;
+
+  cart.summary = calculateCartSummary(cart.items);
+
+  await cart.save();
+
+  return {
+    message: "Cart quantity updated successfully",
+    data: cart,
+  };
+};
+
+// Remove from cart
+export const removeCartItemService = async ({ userId, variantId }) => {
+  const cart = await Cart.findOne({ userId });
+
+  if (!cart) {
+    throw new AppError("Cart not found", HTTP_STATUS.NOT_FOUND);
+  }
+
+  cart.items = cart.items.filter(
+    (item) => item.variantId.toString() !== variantId,
+  );
+
+  cart.summary = calculateCartSummary(cart.items);
+
+  await cart.save();
 
   return {
     message: "Item removed from cart",
-    data: cart
+    data: cart,
   };
-}
-
+};
 
 //clear cart
-export const clearCartService= async(userId)=>{
+export const clearCartService = async (userId) => {
   const cart = await Cart.findOne({
     userId,
-  })
+  });
 
- if (!cart) {
-   throw new AppError("Cart not found", HTTP_STATUS.NOT_FOUND);
- }
+  if (!cart) {
+    throw new AppError("Cart not found", HTTP_STATUS.NOT_FOUND);
+  }
 
-cart.items = [];
+  cart.items = [];
 
- cart.summary = {
-   subtotal: 0,
+  cart.summary = {
+    subtotal: 0,
 
-   discount: 0,
+    discount: 0,
 
-   shippingCharge: 0,
+    shippingCharge: 0,
 
-   total: 0,
- };
+    total: 0,
+  };
 
   await cart.save();
 
@@ -290,6 +277,4 @@ cart.items = [];
 
     data: cart,
   };
-
-}
-
+};

@@ -1,4 +1,3 @@
-
 import { User } from "../../modules/user-side/user-profile/models/user.model.js";
 import { HTTP_STATUS } from "../constants/statusCode.js";
 import { AppError } from "../utils/AppError.js";
@@ -18,7 +17,6 @@ const authMiddleware = async (req, res, next) => {
     const token = authHeader.split(" ")[1];
     let decoded;
 
-    
     try {
       decoded = jwtVerify(token, process.env.JWT_SECRET);
     } catch (jwtError) {
@@ -34,13 +32,11 @@ const authMiddleware = async (req, res, next) => {
       );
     }
 
-
     if (!decoded || !decoded.id) {
       throw new AppError("Malformed token payload", HTTP_STATUS.UNAUTHORIZED);
     }
 
-    
-    const user = await User.findById(decoded.id).select("-password")
+    const user = await User.findById(decoded.id).select("-password");
 
     if (!user) {
       throw new AppError(
@@ -49,14 +45,12 @@ const authMiddleware = async (req, res, next) => {
       );
     }
 
-   
     if (user.isBlocked) {
       throw new AppError(
         "Access denied: User is blocked",
         HTTP_STATUS.FORBIDDEN,
       );
     }
-
 
     req.user = user;
     return next();

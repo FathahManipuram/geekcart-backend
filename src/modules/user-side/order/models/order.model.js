@@ -1,7 +1,8 @@
 import mongoose from "mongoose";
-import { MODEL_ITEM_STATUSES, MODEL_ORDER_STATUSES } from "../../../../common/constants/order/model.constants.js";
-
-
+import {
+  MODEL_ITEM_STATUSES,
+  MODEL_ORDER_STATUSES,
+} from "../../../../common/constants/order/model.constants.js";
 
 const orderItemSchema = new mongoose.Schema(
   {
@@ -32,7 +33,7 @@ const orderItemSchema = new mongoose.Schema(
       type: Number,
       default: null,
     },
-    
+
     couponDiscount: {
       type: Number,
       default: 0,
@@ -102,8 +103,6 @@ const orderItemSchema = new mongoose.Schema(
   },
   { _id: true },
 );
-
-
 
 const orderSchema = new mongoose.Schema(
   {
@@ -228,7 +227,6 @@ const orderSchema = new mongoose.Schema(
     timestamps: true,
   },
 );
-
 
 orderSchema.index({ createdAt: -1 });
 

@@ -1,82 +1,80 @@
 import { CHECKOUT_ISSUES } from "../../../../common/constants/checkout/checkoutIssues.js";
-import { Product } from "../../../admin-side/product-management/models/product.model.js"
+import { Product } from "../../../admin-side/product-management/models/product.model.js";
 import { Variant } from "../../../admin-side/product-management/models/variant.model.js";
 
-export const validateCartItems=async(cartItems)=>{
-	const issues=[]
+export const validateCartItems = async (cartItems) => {
+  const issues = [];
 
-for(const item of cartItems){
-const product = await Product.findOne({
-  _id: item.productId,
-  isActive: true,
-  isDeleted: false,
-});
+  for (const item of cartItems) {
+    const product = await Product.findOne({
+      _id: item.productId,
+      isActive: true,
+      isDeleted: false,
+    });
 
-if(!product){
-	issues.push({
-		type: CHECKOUT_ISSUES.PRODUCT_NOT_FOUND.code,
-		productId: item.productId,
-		productName: item.name,
-		message: CHECKOUT_ISSUES.PRODUCT_NOT_FOUND.message,
-	})
-	continue
-}
+    if (!product) {
+      issues.push({
+        type: CHECKOUT_ISSUES.PRODUCT_NOT_FOUND.code,
+        productId: item.productId,
+        productName: item.name,
+        message: CHECKOUT_ISSUES.PRODUCT_NOT_FOUND.message,
+      });
+      continue;
+    }
 
-const variant= await Variant.findOne({
-	_id: item.variantId,
-	isActive: true,
-	isDeleted:false,
-})
+    const variant = await Variant.findOne({
+      _id: item.variantId,
+      isActive: true,
+      isDeleted: false,
+    });
 
-if(!variant){
-	issues.push({
-		type: CHECKOUT_ISSUES.VARIANT_NOT_FOUND.code,
-		productId: item.ProductId,
-		variantId: item.variantId,
-		productName: item.name,
-		image: item.image,
-		color: item.color,
-		size: item.size,
-		message: CHECKOUT_ISSUES.VARIANT_NOT_FOUND.message,
-	})
-	continue
-}
+    if (!variant) {
+      issues.push({
+        type: CHECKOUT_ISSUES.VARIANT_NOT_FOUND.code,
+        productId: item.ProductId,
+        variantId: item.variantId,
+        productName: item.name,
+        image: item.image,
+        color: item.color,
+        size: item.size,
+        message: CHECKOUT_ISSUES.VARIANT_NOT_FOUND.message,
+      });
+      continue;
+    }
 
-if(variant.stock <= 0){
-	issues.push({
-    type: CHECKOUT_ISSUES.OUT_OF_STOCK.code,
-    productId: item.productId,
-    variantId: item.variantId,
-    productName: item.name,
-    image: item.image,
-    color: item.color,
-    size: item.size,
-	message: CHECKOUT_ISSUES.OUT_OF_STOCK.message,
-  });
+    if (variant.stock <= 0) {
+      issues.push({
+        type: CHECKOUT_ISSUES.OUT_OF_STOCK.code,
+        productId: item.productId,
+        variantId: item.variantId,
+        productName: item.name,
+        image: item.image,
+        color: item.color,
+        size: item.size,
+        message: CHECKOUT_ISSUES.OUT_OF_STOCK.message,
+      });
 
-continue
-}
+      continue;
+    }
 
+    if (variant.stock < item.quantity) {
+      issues.push({
+        type: CHECKOUT_ISSUES.INSUFFICIENT_STOCK.code,
+        productId: item.productId,
+        variantId: item.variantId,
+        productName: item.name,
+        image: item.image,
+        color: item.color,
+        size: item.size,
+        availableStock: variant.stock,
+        message: CHECKOUT_ISSUES.INSUFFICIENT_STOCK.message,
+      });
+      continue;
+    }
+  }
 
-if(variant.stock < item.quantity){
-	issues.push({
-    type: CHECKOUT_ISSUES.INSUFFICIENT_STOCK.code,
-    productId: item.productId,
-    variantId: item.variantId,
-    productName: item.name,
-    image: item.image,
-    color: item.color,
-    size: item.size,
-    availableStock: variant.stock,
-	message: CHECKOUT_ISSUES.INSUFFICIENT_STOCK.message,
-  });
-  continue
-}
-
-}
-
-	return{
-		valid: issues.length === 0,
-		issues,
-	}
-}
+  return {
+    valid: issues.length === 0,
+    issues,
+  };
+};

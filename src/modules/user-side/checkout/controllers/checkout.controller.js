@@ -35,10 +35,6 @@ export const validateShippingController = async (req, res, next) => {
 
 export const validatePaymentController = async (req, res, next) => {
   try {
-    console.log("validate payment details: ", {
-      userId: req.user.id,
-      ...req.body,
-    });
     const result = await validatePaymentService({
       userId: req.user.id,
       ...req.body,

@@ -23,7 +23,7 @@ const walletTransactionSchema = new mongoose.Schema(
       type: Number,
       required: true,
       min: [0.01, "Transaction amount must be greater than zero"],
-      set: (val) => Math.round(val * 100) / 100, 
+      set: (val) => Math.round(val * 100) / 100,
     },
     reason: {
       type: String,
@@ -50,7 +50,7 @@ const walletTransactionSchema = new mongoose.Schema(
       min: [0, "Historical balance snapshot cannot be negative"],
       set: (val) => Math.round(val * 100) / 100,
     },
-    
+
     referenceId: {
       type: mongoose.Schema.Types.ObjectId,
       default: null,
@@ -60,7 +60,6 @@ const walletTransactionSchema = new mongoose.Schema(
     timestamps: true,
   },
 );
-
 
 walletTransactionSchema.index({
   user: 1,

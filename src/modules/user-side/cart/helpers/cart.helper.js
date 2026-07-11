@@ -1,4 +1,3 @@
-
 export const calculateCartSummary = (items = [], speedCharge = 0) => {
   let subtotal = 0;
   let discount = 0;

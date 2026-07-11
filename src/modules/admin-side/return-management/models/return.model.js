@@ -90,7 +90,6 @@ const returnRequestSchema = new mongoose.Schema(
   },
 );
 
-
 returnRequestSchema.index({
   status: 1,
   requestedAt: -1,

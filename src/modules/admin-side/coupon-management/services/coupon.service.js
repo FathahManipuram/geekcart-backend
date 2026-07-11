@@ -7,23 +7,24 @@ import { Coupon } from "../models/coupon.model.js";
 export const createCouponService = async (payload) => {
   const existingCoupon = await Coupon.findOne({
     code: payload.code.toUpperCase(),
+    isDeleted: false,
   });
 
   if (existingCoupon) {
     throw new AppError("Coupon already exists", HTTP_STATUS.CONFLICT);
   }
-const startDate = new Date(payload.startDate);
-startDate.setHours(0, 0, 0, 0);
+  const startDate = new Date(payload.startDate);
+  startDate.setHours(0, 0, 0, 0);
 
-const expiryDate = new Date(payload.expiryDate);
-expiryDate.setHours(23, 59, 59, 999);
+  const expiryDate = new Date(payload.expiryDate);
+  expiryDate.setHours(23, 59, 59, 999);
 
-if (startDate > expiryDate) {
-  throw new AppError(
-    "Expiry date must be after start date",
-    HTTP_STATUS.BAD_REQUEST,
-  );
-}
+  if (startDate > expiryDate) {
+    throw new AppError(
+      "Expiry date must be after start date",
+      HTTP_STATUS.BAD_REQUEST,
+    );
+  }
   const coupon = await Coupon.create({
     ...payload,
     code: payload.code.toUpperCase(),
@@ -51,14 +52,10 @@ export const getCouponService = async ({
 
   if (search && search.trim().length) {
     const searchRegex = { $regex: search.trim(), $options: "i" };
-    query.$or = [
-      { code: searchRegex },
-      { description: searchRegex },
-    ];
+    query.$or = [{ code: searchRegex }, { description: searchRegex }];
   }
 
   const now = new Date();
-
 
   if (status === "ACTIVE") {
     query.isActive = true;
@@ -92,54 +89,48 @@ export const getCouponService = async ({
     activeCoupon,
     expiredCoupon,
     mostUsedCoupon,
-    givenDiscount
+    givenDiscount,
   ] = await Promise.all([
-    Coupon.find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(Number(limit)),
-      // .lean(),
+    Coupon.find(query).sort({ createdAt: -1 }).skip(skip).limit(Number(limit)),
+    // .lean(),
 
     Coupon.countDocuments(query),
 
-   
     Coupon.countDocuments({
       isDeleted: false,
       isActive: true,
       startDate: { $lte: now },
-      expiryDate: { $gt: now }
+      expiryDate: { $gt: now },
     }),
-
 
     Coupon.countDocuments({
       isDeleted: false,
       isActive: true,
-      expiryDate: { $lt: now }
+      expiryDate: { $lt: now },
     }),
 
-  
     Coupon.findOne({ isDeleted: false })
       .sort({ usedCount: -1 })
       .select("code -_id")
       .lean(),
 
-   
     Order.aggregate([
       {
         $match: {
-          paymentStatus: { $in: ["PAID", "PARTIALLY_REFUNDED", "FULLY_REFUNDED"] },
-          "coupon.couponId": { $ne: null }
-        }
+          paymentStatus: {
+            $in: ["PAID", "PARTIALLY_REFUNDED", "FULLY_REFUNDED"],
+          },
+          "coupon.couponId": { $ne: null },
+        },
       },
       {
         $group: {
           _id: null,
-          total: { $sum: "$coupon.discountAmount" }
-        }
-      }
-    ])
+          total: { $sum: "$coupon.discountAmount" },
+        },
+      },
+    ]),
   ]);
-
 
   const discountGiven = givenDiscount[0]?.total || 0;
 
@@ -165,7 +156,6 @@ export const getCouponService = async ({
 
 // Update coupon
 export const updateCouponService = async (couponId, payload) => {
-  console.log("coupon data: ", payload)
   const coupon = await Coupon.findById(couponId);
 
   if (!coupon) {
@@ -195,12 +185,10 @@ export const updateCouponService = async (couponId, payload) => {
     );
   }
 
-const entries = Object.entries(payload);
-for (const [key, value] of entries) {
-
+  const entries = Object.entries(payload);
+  for (const [key, value] of entries) {
     coupon[key] = value;
-
-}
+  }
 
   await coupon.save();
 
@@ -226,9 +214,7 @@ export const toggleCouponStatusService = async (couponId) => {
     message: "Coupon status updated",
     data: coupon,
   };
-}
-
-
+};
 
 //  Delete coupon
 export const deleteCouponService = async (couponId) => {
@@ -248,15 +234,15 @@ export const deleteCouponService = async (couponId) => {
 };
 
 // Get coupon details
-export const getCouponDetailsService= async(couponId)=>{
-	const coupon = await Coupon.findById(couponId);
+export const getCouponDetailsService = async (couponId) => {
+  const coupon = await Coupon.findById(couponId);
 
   if (!coupon) {
     throw new AppError("Coupon not found", HTTP_STATUS.NOT_FOUND);
   }
 
-  return{
-	message: "Coupon details fetched successsfully",
-	data: coupon,
-  }
-}
+  return {
+    message: "Coupon details fetched successsfully",
+    data: coupon,
+  };
+};

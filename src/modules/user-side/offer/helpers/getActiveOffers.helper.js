@@ -8,6 +8,5 @@ export const getActiveOffers = async () => {
     isActive: true,
     startDate: { $lte: now },
     expiryDate: { $gte: now },
-  })
-  .lean();
+  }).lean();
 };

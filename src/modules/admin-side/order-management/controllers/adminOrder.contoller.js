@@ -31,9 +31,7 @@ export const getOrderByIdController = async (req, res, next) => {
 
 //UpdateOrderStatus
 export const updateOrderStatusController = async (req, res, next) => {
-	
   try {
-	console.log("updateController")
     const result = await updateOrderStatusService({
       orderId: req.params.orderId,
       orderStatus: req.body.orderStatus,
@@ -45,19 +43,17 @@ export const updateOrderStatusController = async (req, res, next) => {
   }
 };
 
-
 //Update orderitem status
-export const updateOrderItemStatusController= async(req, res, next)=>{
-  try{
-    const result= await updateOrderItemStatusService({
-      orderId: req.params.orderId, 
+export const updateOrderItemStatusController = async (req, res, next) => {
+  try {
+    const result = await updateOrderItemStatusService({
+      orderId: req.params.orderId,
       itemId: req.params.itemId,
       ...req.body,
-      })
+    });
 
-      return successResponse(res, HTTP_STATUS.OK, result.message)
-  }catch(err){
-    next(err)
+    return successResponse(res, HTTP_STATUS.OK, result.message);
+  } catch (err) {
+    next(err);
   }
-}
-
+};

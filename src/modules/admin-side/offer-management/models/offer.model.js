@@ -5,7 +5,6 @@ const offerSchema = new mongoose.Schema(
     name: {
       type: String,
       required: [true, "Offer name is required"],
-      unique: true,
       trim: true,
     },
     description: {

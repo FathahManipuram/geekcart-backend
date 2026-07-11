@@ -1,5 +1,3 @@
-// wallet.constants.js
-
 export const WALLET_TRANSACTION_TYPES = ["CREDIT", "DEBIT"];
 
 export const WALLET_TRANSACTION_REASONS = [

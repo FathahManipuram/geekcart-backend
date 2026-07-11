@@ -1,11 +1,8 @@
 import { User } from "../../modules/user-side/user-profile/models/user.model.js";
 
-
-
 export const generateReferralCode = async (fullName) => {
   let referralCode;
   let exists = true;
-
 
   const cleanName = fullName && fullName.trim().length > 0 ? fullName : "USER";
 
@@ -23,10 +20,9 @@ export const generateReferralCode = async (fullName) => {
       .toString(36)
       .substring(2, 5)
       .toUpperCase()
-      .padEnd(3, "Z"); 
+      .padEnd(3, "Z");
 
     referralCode = `${prefix}${namePart}${numberPart}${suffix}`;
-
 
     exists = await User.exists({ referralCode });
   }

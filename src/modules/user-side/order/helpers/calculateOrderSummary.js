@@ -16,7 +16,6 @@ export const calculateOrderSummary = (order) => {
     return !["CANCELLED", "RETURN_COMPLETED"].includes(currentStatus);
   });
 
-
   if (activeItems.length === 0) {
     return {
       subtotal: 0,
@@ -27,30 +26,25 @@ export const calculateOrderSummary = (order) => {
     };
   }
 
-
   const subtotal = activeItems.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0,
   );
-
 
   const discount = activeItems.reduce(
     (sum, item) => sum + (item.price - item.salePrice) * item.quantity,
     0,
   );
 
-
   let couponDiscount = 0;
   if (
     order.coupon &&
     (order.coupon.discountAmount > 0 || order.coupon.originalDiscountAmount > 0)
   ) {
-
     const couponCheck = validateRemainingCoupon({
       order,
       remainingItems: activeItems,
     });
-
 
     if (couponCheck.isValid) {
       couponDiscount = activeItems.reduce(
@@ -58,14 +52,11 @@ export const calculateOrderSummary = (order) => {
         0,
       );
     } else {
-
       couponDiscount = 0;
     }
   }
 
-
   const deliveryCharge = (order.shippingCharge ?? 0) + (order.speedCharge ?? 0);
-
 
   const total = subtotal - discount - couponDiscount + deliveryCharge;
 

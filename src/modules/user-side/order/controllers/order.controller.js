@@ -38,7 +38,10 @@ export const getOrderByIdController = async (req, res, next) => {
 //Get all orders || get order history
 export const getAllOrdersController = async (req, res, next) => {
   try {
-    const result = await getAllOrdersService({userId: req.user.id, ...req.query});
+    const result = await getAllOrdersService({
+      userId: req.user.id,
+      ...req.query,
+    });
 
     return successResponse(res, HTTP_STATUS.OK, result.message, result.data);
   } catch (error) {
@@ -46,12 +49,9 @@ export const getAllOrdersController = async (req, res, next) => {
   }
 };
 
-
-
 // Cancel order item
-export const cancelOrderItemController= async(req, res, next)=>{
-  try{
-console.log(req.params, req.user.id)
+export const cancelOrderItemController = async (req, res, next) => {
+  try {
     const result = await cancelOrderitemService({
       userId: req.user.id,
       orderId: req.params.orderId,
@@ -59,12 +59,11 @@ console.log(req.params, req.user.id)
       reason: req.body.reason,
     });
 
-    return successResponse(res, HTTP_STATUS.OK, result.message)
-  }catch(err){
-    next(err)
+    return successResponse(res, HTTP_STATUS.OK, result.message);
+  } catch (err) {
+    next(err);
   }
-}
-
+};
 
 // Cancel All orders
 export const cancelAllOrderController = async (req, res, next) => {
@@ -81,18 +80,15 @@ export const cancelAllOrderController = async (req, res, next) => {
   }
 };
 
-
 // Download invoice
-export const downloadinvoiceController= async(req, res, next)=>{
-  try{
-    
+export const downloadinvoiceController = async (req, res, next) => {
+  try {
     await downloadinvoiceService({
       orderId: req.params.orderId,
       userId: req.user.id,
       res,
     });
-
-  } catch(err){
-    next(err)
+  } catch (err) {
+    next(err);
   }
-}
+};

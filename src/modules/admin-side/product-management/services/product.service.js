@@ -8,8 +8,6 @@ import { Subcategory } from "../../subcategory-management/models/subcategory.mod
 import { Variant } from "../models/variant.model.js";
 import { deleteImageFromCloudinary } from "../../../../common/utils/cloudinary.delete.js";
 
-
-
 //Create Product
 export const createProductService = async (data) => {
   const session = await mongoose.startSession();
@@ -186,10 +184,8 @@ export const createProductService = async (data) => {
   }
 };
 
-
 //Update product
 export const updateProductService = async (productId, data) => {
-
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -245,7 +241,6 @@ export const updateProductService = async (productId, data) => {
       for (let i = 0; i < variants.length; i++) {
         const variantInput = variants[i];
 
-
         const existingVariant = variantInput._id
           ? oldVariants.find(
               (v) => v._id.toString() === variantInput._id.toString(),
@@ -254,7 +249,6 @@ export const updateProductService = async (productId, data) => {
               (v) =>
                 v.color === variantInput.color && v.size === variantInput.size,
             );
-
 
         const mergedImages =
           variantInput.images !== undefined
@@ -292,7 +286,6 @@ export const updateProductService = async (productId, data) => {
         );
       }
 
-
       await Variant.updateMany(
         {
           product: productId,
@@ -310,7 +303,6 @@ export const updateProductService = async (productId, data) => {
       product: updatedProduct._id,
       isDeleted: false,
     }).lean();
-
 
     const usedImages = finalVariants.flatMap((variant) => variant.images || []);
     const removableImages = oldImages.filter(
@@ -341,7 +333,6 @@ export const updateProductService = async (productId, data) => {
   }
 };
 
-
 // delete product
 export const deleteProductService = async (productId) => {
   const session = await mongoose.startSession();
@@ -349,7 +340,6 @@ export const deleteProductService = async (productId) => {
   session.startTransaction();
 
   try {
-   
     const existingProduct = await Product.findOne({
       _id: productId,
       isDeleted: false,
@@ -359,7 +349,6 @@ export const deleteProductService = async (productId) => {
       throw new AppError("Product not found", HTTP_STATUS.NOT_FOUND);
     }
 
-    
     await Product.findByIdAndUpdate(
       productId,
       {
@@ -371,7 +360,6 @@ export const deleteProductService = async (productId) => {
       },
     );
 
- 
     await Variant.updateMany(
       {
         product: productId,
@@ -385,7 +373,6 @@ export const deleteProductService = async (productId) => {
       },
     );
 
-  
     await session.commitTransaction();
 
     return {
@@ -400,26 +387,22 @@ export const deleteProductService = async (productId) => {
   }
 };
 
-
 // Get all products
 export const getProductsService = async (query) => {
-  
- const {
-   page = 1,
-   limit = 10,
-   search = "",
-   subcategory = "",
-   productStatus = "",
-   stockStatus = "",
-   sort = "latest",
- } = query;
+  const {
+    page = 1,
+    limit = 10,
+    search = "",
+    subcategory = "",
+    productStatus = "",
+    stockStatus = "",
+    sort = "latest",
+  } = query;
 
-  console.log("QUERY ", query)
   const filters = {
     isDeleted: false,
   };
 
-  
   if (search.trim()) {
     filters.name = {
       $regex: search.trim(),
@@ -427,28 +410,23 @@ export const getProductsService = async (query) => {
     };
   }
 
-
   if (subcategory) {
     filters.subcategory = subcategory;
   }
-if (productStatus) {
-  filters.isActive = productStatus === "active";
-}
- 
+  if (productStatus) {
+    filters.isActive = productStatus === "active";
+  }
+
   const products = await Product.find(filters)
     .populate("category", "name")
     .populate("subcategory", "name")
     .sort({
-   createdAt: sort === "oldest" ? 1 : -1,
+      createdAt: sort === "oldest" ? 1 : -1,
     })
     .lean();
 
-
-
- 
   const productIds = products.map((product) => product._id);
 
- 
   const variants = await Variant.find({
     product: {
       $in: productIds,
@@ -457,20 +435,16 @@ if (productStatus) {
     isDeleted: false,
   }).lean();
 
- 
   const formattedProducts = products.map((product) => {
-   
     const productVariants = variants.filter(
       (variant) => variant.product.toString() === product._id.toString(),
     );
 
-    
     const stock = productVariants.reduce(
       (total, variant) => total + (variant.stock || 0),
       0,
     );
 
-   
     const price =
       productVariants.length > 0
         ? Math.min(
@@ -478,15 +452,16 @@ if (productStatus) {
               (variant) => variant.salePrice || variant.price,
             ),
           )
-          :
-          0;
+        : 0;
 
+    const hasOutOfStock = productVariants.some(
+      (variant) => variant.stock === 0,
+    );
 
-const hasOutOfStock = productVariants.some((variant) => variant.stock === 0);
-
-const hasLowStock = productVariants.some(
-  (variant) => variant.stock > 0 && variant.stock <= variant.lowStockThreshold,
-);
+    const hasLowStock = productVariants.some(
+      (variant) =>
+        variant.stock > 0 && variant.stock <= variant.lowStockThreshold,
+    );
 
     let productStatus = "in-stock";
 
@@ -496,7 +471,6 @@ const hasLowStock = productVariants.some(
       productStatus = "low-stock";
     }
 
-    
     const sizes = [...new Set(productVariants.map((variant) => variant.size))];
 
     return {
@@ -509,7 +483,6 @@ const hasLowStock = productVariants.some(
     };
   });
 
- 
   let filteredProducts = formattedProducts;
 
   if (stockStatus) {
@@ -518,7 +491,6 @@ const hasLowStock = productVariants.some(
     );
   }
 
-  
   const currentPage = Number(page);
 
   const perPage = Number(limit);
@@ -534,7 +506,6 @@ const hasLowStock = productVariants.some(
     startIndex + perPage,
   );
 
-  
   const totalSkuUnits = variants.reduce(
     (total, variant) => total + (variant.stock || 0),
     0,
@@ -577,12 +548,8 @@ const hasLowStock = productVariants.some(
   };
 };
 
-
-
-
 //Get prodect details
 export const getProductDetailsService = async (slug) => {
-
   const product = await Product.findOne({
     slug,
     isDeleted: false,
@@ -591,12 +558,10 @@ export const getProductDetailsService = async (slug) => {
     .populate("subcategory", "name")
     .lean();
 
-  
   if (!product) {
     throw new AppError("Product not found", HTTP_STATUS.NOT_FOUND);
   }
 
-  
   const variants = await Variant.find({
     product: product._id,
 
@@ -613,8 +578,6 @@ export const getProductDetailsService = async (slug) => {
   };
 };
 
-
-
 // Toggle product active status
 export const toggleProductStatusService = async (productId) => {
   const product = await Product.findById(productId);
@@ -622,14 +585,14 @@ export const toggleProductStatusService = async (productId) => {
     throw new AppError("Product not found", HTTP_STATUS.NOT_FOUND);
   }
 
-  product.isActive = !product.isActive
+  product.isActive = !product.isActive;
   await product.save();
 
-   return {
-     message: `Product ${
-       product.isActive ? "activated" : "deactivated"
-     } successfully`,
+  return {
+    message: `Product ${
+      product.isActive ? "activated" : "deactivated"
+    } successfully`,
 
-     data: product,
-   };
-}
+    data: product,
+  };
+};

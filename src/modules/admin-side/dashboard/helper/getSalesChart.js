@@ -2,12 +2,10 @@ import { Order } from "../../../user-side/order/models/order.model.js";
 import { SUCCESSFUL_ITEM_STATUSES } from "../../sales-report/constants/sales.constants.js";
 import { buildDateFilter } from "../../sales-report/helper/buildDateFilter.helper.js";
 
-
 export const getSalesChart = async (type = "monthly") => {
   const filters = {
     paymentStatus: { $in: ["PAID", "PARTIALLY_REFUNDED", "FULLY_REFUNDED"] },
   };
-
 
   Object.assign(filters, buildDateFilter({ type }));
 
@@ -46,10 +44,9 @@ export const getSalesChart = async (type = "monthly") => {
   const salesChart = await Order.aggregate([
     { $match: filters },
     {
-
       $project: {
         createdAt: 1,
-        
+
         couponDiscount: {
           $cond: [
             {
@@ -125,7 +122,7 @@ export const getSalesChart = async (type = "monthly") => {
                         },
                       ],
                     },
-                   
+
                     {
                       $multiply: [
                         "$$this.appliedOffer.discountAmount",
@@ -161,7 +158,6 @@ export const getSalesChart = async (type = "monthly") => {
       },
     },
     {
-
       $project: {
         createdAt: 1,
         netSalesInOrder: {
@@ -191,7 +187,6 @@ export const getSalesChart = async (type = "monthly") => {
     },
     { $sort: sortExpression },
     {
-
       $project: {
         _id: 0,
         label: "$_id.label",
@@ -199,7 +194,6 @@ export const getSalesChart = async (type = "monthly") => {
       },
     },
   ]);
-
 
   if (type === "monthly") {
     const monthNames = [
@@ -227,7 +221,6 @@ export const getSalesChart = async (type = "monthly") => {
   }
 
   if (type === "daily" || type === "today") {
-   
     const hours = Array.from(
       { length: 24 },
       (_, i) => `${String(i).padStart(2, "0")}:00`,

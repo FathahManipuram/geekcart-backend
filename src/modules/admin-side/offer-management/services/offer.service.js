@@ -9,11 +9,11 @@ import { Offer } from "../models/offer.model.js";
 export const createOfferService = async (payload) => {
   const { name, offerType, targetId, startDate, expiryDate } = payload;
 
-  if (new Date(startDate) >= new Date(expiryDate)) {
+  if (new Date(startDate) > new Date(expiryDate)) {
     throw new AppError(
       "Expiry date must be after the start date",
       HTTP_STATUS.BAD_REQUEST,
-    )
+    );
   }
 
   let target;
@@ -51,7 +51,6 @@ export const createOfferService = async (payload) => {
     throw new AppError(`${offerType} not found`, HTTP_STATUS.NOT_FOUND);
   }
 
-  
   const existingOffer = await Offer.findOne({
     offerType,
     targetId,
@@ -64,7 +63,6 @@ export const createOfferService = async (payload) => {
       HTTP_STATUS.CONFLICT,
     );
   }
-
 
   const existingName = await Offer.findOne({
     name: {
@@ -86,7 +84,6 @@ export const createOfferService = async (payload) => {
   };
 };
 
-
 // Get all offer
 export const getOffersService = async ({
   page = 1,
@@ -100,9 +97,8 @@ export const getOffersService = async ({
     isDeleted: false,
   };
 
-
- page = Number(page);
- limit = Number(limit);
+  page = Number(page);
+  limit = Number(limit);
   const now = new Date();
 
   if (search && search.trim()) {
@@ -118,28 +114,24 @@ export const getOffersService = async ({
   if (status === "ACTIVE") {
     query.isActive = true;
     query.startDate = { $lte: now };
-    query.expiryDate = {$gte: now}
+    query.expiryDate = { $gte: now };
   }
 
   if (status === "INACTIVE") {
     query.isActive = false;
   }
 
-   if (status === "SCHEDULED") {
+  if (status === "SCHEDULED") {
     query.isActive = true;
-     query.startDate = {$gt: now}
-   }
+    query.startDate = { $gt: now };
+  }
 
-    if (status === "EXPIRED") {
-      query.isActive = true;
-      query.expiryDate = {$lt: now}
+  if (status === "EXPIRED") {
+    query.isActive = true;
+    query.expiryDate = { $lt: now };
+  }
 
-    }
-
-
-
- const skip = (page - 1) * limit;
-
+  const skip = (page - 1) * limit;
 
   const [offers, totalOffers, statsResult] = await Promise.all([
     //offers
@@ -234,13 +226,11 @@ export const getOfferDetailsService = async (offerId) => {
   const offer = await Offer.findOne({
     _id: offerId,
     isDeleted: false,
-  })
-    .populate("targetId", "name")
+  }).populate("targetId", "name");
 
   if (!offer) {
     throw new AppError("Offer not found", HTTP_STATUS.NOT_FOUND);
   }
-
 
   return {
     message: "Offer fetched successfully",
@@ -248,11 +238,8 @@ export const getOfferDetailsService = async (offerId) => {
   };
 };
 
-
-
 // Update offer
 export const updateOfferService = async (offerId, payload) => {
-  console.log("offerUpdate: ", payload)
   const offer = await Offer.findOne({
     _id: offerId,
     isDeleted: false,
@@ -285,11 +272,10 @@ export const updateOfferService = async (offerId, payload) => {
     );
   }
 
-
   const offerType = payload.offerType || offer.offerType;
   const targetId = payload.targetId || offer.targetId;
 
-  let target ;
+  let target;
 
   switch (offerType) {
     case "Product":
@@ -324,7 +310,6 @@ export const updateOfferService = async (offerId, payload) => {
     throw new AppError(`${offerType} not found`, HTTP_STATUS.NOT_FOUND);
   }
 
-
   const existingOffer = await Offer.findOne({
     _id: { $ne: offerId },
     offerType,
@@ -338,7 +323,6 @@ export const updateOfferService = async (offerId, payload) => {
       HTTP_STATUS.CONFLICT,
     );
   }
-
 
   if (payload.name) {
     const existingName = await Offer.findOne({
@@ -365,7 +349,6 @@ export const updateOfferService = async (offerId, payload) => {
     data: updatedOffer,
   };
 };
-
 
 // Toggle status
 export const toggleOfferStatusService = async (offerId) => {

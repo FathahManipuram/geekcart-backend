@@ -15,7 +15,7 @@ const wishlistSchema = new mongoose.Schema(
           ref: "Variant",
           required: true,
         },
-        
+
         productId: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "Product",
@@ -32,7 +32,6 @@ const wishlistSchema = new mongoose.Schema(
     timestamps: true,
   },
 );
-
 
 wishlistSchema.index({ userId: 1, "products.variantId": 1 });
 

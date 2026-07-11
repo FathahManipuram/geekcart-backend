@@ -1,5 +1,8 @@
 import Joi from "joi";
-import { ITEM_STATUSES, ORDER_STATUSES } from "../../../../common/constants/order/orderStatus.js";
+import {
+  ITEM_STATUSES,
+  ORDER_STATUSES,
+} from "../../../../common/constants/order/orderStatus.js";
 
 export const updateOrderStatusSchema = Joi.object({
   orderStatus: Joi.string()
@@ -11,7 +14,6 @@ export const updateOrderStatusSchema = Joi.object({
       "string.empty": "Order status cannot be empty",
     }),
 });
-
 
 export const updateOrderItemStatusSchema = Joi.object({
   status: Joi.string()

@@ -1,9 +1,13 @@
 import { Router } from "express";
-import { getAllReturnRequestsController, getReturnRequestDetailsController, updateReturnRequestStatusController } from "../controllers/adminReturn.controller.js";
+import {
+  getAllReturnRequestsController,
+  getReturnRequestDetailsController,
+  updateReturnRequestStatusController,
+} from "../controllers/adminReturn.controller.js";
 
-const router= Router()
+const router = Router();
 
-router.get("/", getAllReturnRequestsController)
-router.patch("/:returnId/status", updateReturnRequestStatusController)
-router.get("/:returnId", getReturnRequestDetailsController)
-export default router
+router.get("/", getAllReturnRequestsController);
+router.patch("/:returnId/status", updateReturnRequestStatusController);
+router.get("/:returnId", getReturnRequestDetailsController);
+export default router;

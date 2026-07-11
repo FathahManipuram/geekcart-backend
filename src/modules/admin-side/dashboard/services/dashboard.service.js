@@ -6,9 +6,7 @@ import { getDataSample } from "../helper/getSample.js";
 import { getTopProduct } from "../helper/topProduct.js";
 import { getTopSubcategories } from "../helper/topSubcategories.js";
 
-
 export const getDashboardService = async ({ type = "monthly" } = {}) => {
-
   const [
     totalUsers,
     activeUsers,
@@ -58,7 +56,6 @@ export const getDashboardService = async ({ type = "monthly" } = {}) => {
       { $sort: { "_id.year": 1, "_id.month": 1 } },
     ]),
 
-
     getSalesChart(type),
     getTopProduct(type),
     getTopSubcategories(type),
@@ -80,7 +77,6 @@ export const getDashboardService = async ({ type = "monthly" } = {}) => {
     "Dec",
   ];
   const currentYear = new Date().getFullYear();
-
 
   const formattedUserGrowth = userGrowthData.map((item) => {
     const monthName = months[item._id.month - 1];

@@ -1,6 +1,9 @@
 import { HTTP_STATUS } from "../../../../common/constants/statusCode.js";
 import { successResponse } from "../../../../common/helpers/response.js";
-import { applyCouponService, getAvailableCouponsService } from "../services/userCoupon.service.js";
+import {
+  applyCouponService,
+  getAvailableCouponsService,
+} from "../services/userCoupon.service.js";
 
 export const getAvailableCouponsController = async (req, res, next) => {
   try {

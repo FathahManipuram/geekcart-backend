@@ -1,5 +1,4 @@
 import { HTTP_STATUS } from "../../../../common/constants/statusCode.js";
-
 import { successResponse } from "../../../../common/helpers/response.js";
 
 import {
@@ -13,12 +12,9 @@ import {
 // Add to cart
 export const addToCartController = async (req, res, next) => {
   try {
-    console.log("userid", req.user.id);
-
     const userId = req.user.id;
     const variantId = req.body.variantId;
     const quantity = Number(req.body.quantity || 1);
-    console.log(userId, variantId, quantity);
     const result = await addToCartService(userId, variantId, quantity);
 
     return successResponse(res, HTTP_STATUS.OK, result.message, result.data);
@@ -44,7 +40,6 @@ export const updateCartQuantityController = async (req, res, next) => {
     const userId = req.user.id;
     const { variantId } = req.params;
     const { quantity } = req.body;
-    console.log("quntity", typeof quantity);
     const result = await updateCartQuantityService({
       userId,
       variantId,
@@ -75,16 +70,15 @@ export const removeCartItemController = async (req, res, next) => {
   }
 };
 
-
 // Clear cart
-export const clearCartController= async(req,res, next)=>{
-   try {
-     const userId = req.user.id;
+export const clearCartController = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
 
-     const result = await clearCartService(userId);
+    const result = await clearCartService(userId);
 
-     return successResponse(res, HTTP_STATUS.OK, result.message, result.data);
-   } catch (err) {
-     next(err);
-   }
-}
+    return successResponse(res, HTTP_STATUS.OK, result.message, result.data);
+  } catch (err) {
+    next(err);
+  }
+};

@@ -24,7 +24,7 @@ import { generateReferralCode } from "../../../common/utils/referral.util.js";
 
 //user register
 export const registerUser = async (data) => {
-  const { email, password, referralCode} = data;
+  const { email, password, referralCode } = data;
   const existingUser = await User.findOne({ email });
 
   if (existingUser) {
@@ -35,26 +35,21 @@ export const registerUser = async (data) => {
 
   const { confirmPassword: _confirmPassword, ...userData } = data;
 
-  
-let referredBy = null;
+  let referredBy = null;
 
-if (referralCode) {
-  const referrer = await User.findOne({
-    referralCode,
-  });
+  if (referralCode) {
+    const referrer = await User.findOne({
+      referralCode,
+    });
 
-  if (!referrer) {
-    throw new AppError("Invalid referral code", HTTP_STATUS.BAD_REQUEST);
+    if (!referrer) {
+      throw new AppError("Invalid referral code", HTTP_STATUS.BAD_REQUEST);
+    }
+
+    referredBy = referrer._id;
   }
 
-  referredBy = referrer._id;
-}
- 
-
-  const generatedReferralCode =
-  await generateReferralCode(
-    data.fullName,
-  );
+  const generatedReferralCode = await generateReferralCode(data.fullName);
 
   const otp = await createOtp({
     email,
@@ -252,7 +247,6 @@ export const refreshTokenService = async ({ refreshToken }) => {
 
 // Admin refreshToken
 export const adminRefreshTokenService = async ({ refreshToken }) => {
-
   if (!refreshToken) {
     throw new AppError("Refresh token required", HTTP_STATUS.BAD_REQUEST);
   }
@@ -272,9 +266,7 @@ export const adminRefreshTokenService = async ({ refreshToken }) => {
       accessToken: newAccessToken,
     },
   };
-}
-
-
+};
 
 //Google login
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -309,10 +301,9 @@ export const googleLoginService = async (token) => {
       );
     }
 
-    if(user.isBlocked){
-      throw new AppError("User is blocked", HTTP_STATUS.BAD_REQUEST)
+    if (user.isBlocked) {
+      throw new AppError("User is blocked", HTTP_STATUS.BAD_REQUEST);
     }
-    
   } else {
     user = await User.create({
       email,

@@ -48,91 +48,92 @@ export const createOfferSchema = Joi.object({
     otherwise: Joi.any().strip(),
   }),
 
- startDate: Joi.date()
-     .iso()
-     .required()
-     .custom((value, helpers) => {
-       const startDate = new Date(value);
-       startDate.setHours(0, 0, 0, 0);
- 
-       const today = new Date();
-       today.setHours(0, 0, 0, 0);
- 
-       if (startDate < today) {
-         return helpers.message("Start date cannot be set in the past.");
-       }
- 
-       return value;
-     })
-     .messages({
-       "any.required": "Start date is required.",
-     }),
- 
-   expiryDate: Joi.date()
-     .iso()
-     .required()
-     .custom((value, helpers) => {
-       const { startDate } = helpers.state.ancestors[0];
- 
-       if (!startDate) return value;
- 
-       const start = new Date(startDate);
-       start.setHours(0, 0, 0, 0);
- 
-       const expiry = new Date(value);
-       expiry.setHours(0, 0, 0, 0);
- 
-       if (expiry < start) {
-         return helpers.message(
-           "Expiry date must be on or after the start date.",
-         );
-       }
- 
-       return value;
-     })
-     .messages({
-       "any.required": "Expiry date is required.",
-     }),
+  startDate: Joi.date()
+    .iso()
+    .required()
+    .custom((value, helpers) => {
+      const startDate = new Date(value);
+      startDate.setHours(0, 0, 0, 0);
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (startDate < today) {
+        return helpers.message("Start date cannot be set in the past.");
+      }
+
+      return value;
+    })
+    .messages({
+      "any.required": "Start date is required.",
+    }),
+
+  expiryDate: Joi.date()
+    .iso()
+    .required()
+    .custom((value, helpers) => {
+      const { startDate } = helpers.state.ancestors[0];
+
+      if (!startDate) return value;
+
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+
+      const expiry = new Date(value);
+      expiry.setHours(0, 0, 0, 0);
+
+      if (expiry < start) {
+        return helpers.message(
+          "Expiry date must be on or after the start date.",
+        );
+      }
+
+      return value;
+    })
+    .messages({
+      "any.required": "Expiry date is required.",
+    }),
 
   isActive: Joi.boolean().default(true),
 });
 
-export const updateOfferSchema = createOfferSchema.fork(
-  [
-    "name",
-    "description",
-    "offerType",
-    "targetId",
-    "discountType",
-    "discountValue",
-    "maxDiscountAmount",
-    "startDate",
-    "expiryDate",
-    "isActive",
-  ],
-   (schema) => schema.optional(),
-    )
-    .keys({
-      expiryDate: Joi.date()
-        .iso()
-        .optional()
-        .custom((value, helpers) => {
-          const { startDate } = helpers.state.ancestors[0];
-  
-          if (!startDate) return value;
-  
-          const start = new Date(startDate);
-          start.setHours(0, 0, 0, 0);
-  
-          const expiry = new Date(value);
-          expiry.setHours(0, 0, 0, 0);
-  
-          if (expiry < start) {
-            return helpers.message(
-              "Expiry date must be on or after the start date.",
-            );
-          }
-  
-          return value;
-        }),
-    });
+export const updateOfferSchema = createOfferSchema
+  .fork(
+    [
+      "name",
+      "description",
+      "offerType",
+      "targetId",
+      "discountType",
+      "discountValue",
+      "maxDiscountAmount",
+      "startDate",
+      "expiryDate",
+      "isActive",
+    ],
+    (schema) => schema.optional(),
+  )
+  .keys({
+    expiryDate: Joi.date()
+      .iso()
+      .optional()
+      .custom((value, helpers) => {
+        const { startDate } = helpers.state.ancestors[0];
+
+        if (!startDate) return value;
+
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+
+        const expiry = new Date(value);
+        expiry.setHours(0, 0, 0, 0);
+
+        if (expiry < start) {
+          return helpers.message(
+            "Expiry date must be on or after the start date.",
+          );
+        }
+
+        return value;
+      }),
+  });

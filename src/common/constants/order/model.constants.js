@@ -13,7 +13,6 @@ export const MODEL_ITEM_STATUSES = [
   "RETURN_COMPLETED",
 ];
 
-
 export const MODEL_ORDER_STATUSES = [
   "PENDING",
   "PLACED",

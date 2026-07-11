@@ -9,7 +9,6 @@ export const exportSalesExcel = async (report, filters = {}) => {
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet("Sales Report");
 
-
   worksheet.mergeCells("A1:N1");
   const title = worksheet.getCell("A1");
   title.value = "GeekCart Sales Report";
@@ -17,14 +16,12 @@ export const exportSalesExcel = async (report, filters = {}) => {
   title.alignment = { horizontal: "center", vertical: "middle" };
   worksheet.getRow(1).height = 30;
 
-
   // Table Rows Calculation
 
   const startRowIndex = 10;
   const endRowIndex =
     startRowIndex + (orders.length > 0 ? orders.length - 1 : 0);
   const totalsRowIndex = endRowIndex + 1; // 🏆 Dynamic row pointer where the bottom totals are located
-
 
   // Summary Grid
 
@@ -73,7 +70,6 @@ export const exportSalesExcel = async (report, filters = {}) => {
     result: Number(summary.couponDiscount || 0),
   };
 
-
   worksheet.getCell("D7").value = "Net Sales";
   worksheet.getCell("E7").value = {
     formula: orders.length > 0 ? `=K${totalsRowIndex}` : "0",
@@ -88,9 +84,8 @@ export const exportSalesExcel = async (report, filters = {}) => {
     worksheet.getCell(cell).numFmt = "₹#,##0.00";
   });
 
-
   // Table Header
-  
+
   worksheet.addRow([]);
 
   const headerRow = worksheet.addRow([
@@ -122,7 +117,6 @@ export const exportSalesExcel = async (report, filters = {}) => {
 
   worksheet.views = [{ state: "frozen", ySplit: 9 }];
   worksheet.autoFilter = { from: "A9", to: "M9" };
-
 
   // Transactional Rows
 
@@ -176,7 +170,6 @@ export const exportSalesExcel = async (report, filters = {}) => {
       order.orderStatus || "-",
     ]);
   });
-
 
   // Totals Row
 
@@ -238,8 +231,7 @@ export const exportSalesExcel = async (report, filters = {}) => {
     }
   });
 
-
-  // Layout 
+  // Layout
 
   worksheet.eachRow((row, rowNumber) => {
     if (rowNumber >= startRowIndex && rowNumber <= endRowIndex) {
@@ -268,7 +260,6 @@ export const exportSalesExcel = async (report, filters = {}) => {
       });
     }
   });
-
 
   // Auto Width
 

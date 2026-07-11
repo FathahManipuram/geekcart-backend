@@ -74,7 +74,6 @@ export const getSalesReportService = async ({
             },
           },
 
-          // ✅ FIX 1: Multiplied Offer Discount by line-item Quantity to fix the 400 vs 600 mismatch
           offerDiscountInOrder: {
             $reduce: {
               input: "$items",
@@ -173,7 +172,7 @@ export const getSalesReportService = async ({
           cancelledInOrder: 1,
           returnedInOrder: 1,
           refundedInOrder: 1,
-          // ✅ FIX 2: Wrapped in $max to guarantee the calculated order baseline never drops below 0
+
           orderNetCalculated: {
             $max: [
               0,
@@ -200,7 +199,7 @@ export const getSalesReportService = async ({
           grossSales: { $sum: "$subtotal" },
           offerDiscount: { $sum: "$offerDiscountInOrder" },
           couponDiscount: { $sum: "$couponDiscount" },
-          netSales: { $sum: "$orderNetCalculated" }, 
+          netSales: { $sum: "$orderNetCalculated" },
           totalOderedItems: { $sum: "$itemsCount" },
           itemsSold: { $sum: "$itemsSoldInOrder" },
           cancelledItems: { $sum: "$cancelledInOrder" },
@@ -239,9 +238,6 @@ export const getSalesReportService = async ({
     },
   };
 };
-
-
-
 
 export const exportSalesExcelService = async (filters) => {
   const report = await getSalesReportService({

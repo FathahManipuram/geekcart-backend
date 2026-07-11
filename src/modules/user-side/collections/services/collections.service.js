@@ -5,7 +5,6 @@ import { getActiveOffers } from "../../offer/helpers/getActiveOffers.helper.js";
 import { applyOffersToProducts } from "../../offer/helpers/applyOffersToProducts.helper.js";
 
 export const getCollectionsService = async (query) => {
-  console.log("collection Service: ", query)
   const {
     page = 1,
     limit = 8,
@@ -18,10 +17,8 @@ export const getCollectionsService = async (query) => {
     maxPrice = 99999,
   } = query;
 
-
   const currentPage = Number(page);
   const perPage = Number(limit);
-
 
   const normalizedSubcategories = Array.isArray(subcategory)
     ? subcategory
@@ -37,13 +34,11 @@ export const getCollectionsService = async (query) => {
       ? [colors]
       : [];
 
-  
   const productMatch = {
     isDeleted: false,
     isActive: true,
   };
 
- 
   if (search.trim()) {
     productMatch.name = {
       $regex: search,
@@ -51,20 +46,16 @@ export const getCollectionsService = async (query) => {
     };
   }
 
- 
   if (normalizedSubcategories.length > 0) {
     productMatch.subcategory = {
       $in: normalizedSubcategories.map((id) => new mongoose.Types.ObjectId(id)),
     };
-
-   }
-
+  }
 
   const variantMatch = {
     isDeleted: false,
     isActive: true,
   };
-
 
   if (normalizedSizes.length > 0) {
     variantMatch.size = {
@@ -72,13 +63,11 @@ export const getCollectionsService = async (query) => {
     };
   }
 
- 
   if (normalizedColors.length > 0) {
     variantMatch.color = {
       $in: normalizedColors,
     };
   }
-
 
   variantMatch.$expr = {
     $and: [
@@ -101,7 +90,6 @@ export const getCollectionsService = async (query) => {
       },
     ],
   };
-
 
   let sortStage = {
     createdAt: -1,
@@ -131,20 +119,17 @@ export const getCollectionsService = async (query) => {
     };
   }
 
-    if (sortBy === "Z-A") {
-      sortStage = {
-        name: -1,
-      };
-    }
-
+  if (sortBy === "Z-A") {
+    sortStage = {
+      name: -1,
+    };
+  }
 
   const pipeline = [
-
     {
       $match: productMatch,
     },
 
-    
     {
       $lookup: {
         from: "variants",
@@ -157,7 +142,6 @@ export const getCollectionsService = async (query) => {
       },
     },
 
-   
     {
       $addFields: {
         variants: {
@@ -216,7 +200,6 @@ export const getCollectionsService = async (query) => {
       },
     },
 
-  
     {
       $match: {
         "variants.0": {
@@ -225,7 +208,6 @@ export const getCollectionsService = async (query) => {
       },
     },
 
-   
     {
       $addFields: {
         lowestPrice: {
@@ -244,7 +226,6 @@ export const getCollectionsService = async (query) => {
       },
     },
 
-   
     {
       $lookup: {
         from: "subcategories",
@@ -264,7 +245,6 @@ export const getCollectionsService = async (query) => {
         preserveNullAndEmptyArrays: true,
       },
     },
-
 
     {
       $sort: sortStage,
@@ -291,21 +271,17 @@ export const getCollectionsService = async (query) => {
     },
   ];
 
-
   const result = await Product.aggregate(pipeline);
 
-const offers= await getActiveOffers()
-const products = applyOffersToProducts({
-  products: result[0]?.products || [],
-  offers,
-});
-
- // const products = result[0]?.products || [];
+  const offers = await getActiveOffers();
+  const products = applyOffersToProducts({
+    products: result[0]?.products || [],
+    offers,
+  });
 
   const totalProducts = result[0]?.totalCount?.[0]?.count || 0;
 
   const totalPages = Math.ceil(totalProducts / perPage);
-
 
   return {
     message: "Collections fetched successfully",
@@ -324,5 +300,4 @@ const products = applyOffersToProducts({
       },
     },
   };
-
 };

@@ -1,38 +1,43 @@
-import { ITEM_STATUSES, ORDER_STATUSES } from "../../../../common/constants/order/orderStatus.js";
-import { ITEM_STATUS_TRANSITIONS, ORDER_STATUS_TRANSITIONS } from "../../../../common/constants/order/orderStatusTransistion.js";
+import {
+  ITEM_STATUSES,
+  ORDER_STATUSES,
+} from "../../../../common/constants/order/orderStatus.js";
+import {
+  ITEM_STATUS_TRANSITIONS,
+  ORDER_STATUS_TRANSITIONS,
+} from "../../../../common/constants/order/orderStatusTransistion.js";
 import { HTTP_STATUS } from "../../../../common/constants/statusCode.js";
 import { AppError } from "../../../../common/utils/AppError.js";
 import { calculateItemRefund } from "../../../user-side/order/helpers/calculateItemRefund.js";
-import { Order } from "../../../user-side/order/models/order.model.js"
+import { Order } from "../../../user-side/order/models/order.model.js";
 import { processReferralReward } from "../../../user-side/referral/services/referral.service.js";
 import { creditWallet } from "../../../user-side/wallet/services/wallet.service.js";
 import { Variant } from "../../product-management/models/variant.model.js";
 
-
 // Get all Orders
-export const getOrdersService = async({
-	page= 1,
-	limit=5,
-	search="",
-	status,
-	_sort,
-})=>{
-const query={}
+export const getOrdersService = async ({
+  page = 1,
+  limit = 5,
+  search = "",
+  status,
+  _sort,
+}) => {
+  const query = {};
 
-if (status && status.trim() !== "ALL") {
-  query.orderStatus = status.trim();
-}
+  if (status && status.trim() !== "ALL") {
+    query.orderStatus = status.trim();
+  }
 
-if(search){
-	query.orderNumber={
-		$regex: search.trim(),
-		$options: "i",
-	}
-}
+  if (search) {
+    query.orderNumber = {
+      $regex: search.trim(),
+      $options: "i",
+    };
+  }
 
-const skip= (page-1) * limit
+  const skip = (page - 1) * limit;
 
-	const [orders, totalOrders, pendingShipments, revenueResult] =
+  const [orders, totalOrders, pendingShipments, revenueResult] =
     await Promise.all([
       Order.find(query)
         .populate("user", "fullName email")
@@ -51,75 +56,74 @@ const skip= (page-1) * limit
 
       Order.aggregate([
         {
-          $match:{
-            paymentStatus:{$in:["PAID", "PARTIALLY_REFUNDED", "FULLY_REFUNDED"]}
+          $match: {
+            paymentStatus: {
+              $in: ["PAID", "PARTIALLY_REFUNDED", "FULLY_REFUNDED"],
+            },
           },
         },
         {
-          $project:{
+          $project: {
             totalAmount: 1,
             itemRefunds: {
               $reduce: {
                 input: "$items",
                 initialValue: 0,
-                in: {$add: ["$$value", {$ifNull: ["$$this.refundAmount", 0]}]}
-              }
-            }
-          }
+                in: {
+                  $add: ["$$value", { $ifNull: ["$$this.refundAmount", 0] }],
+                },
+              },
+            },
+          },
         },
         {
           $group: {
             _id: null,
             totalRevenue: {
-              $sum: {$subtract: ["$totalAmount", "$itemRefunds"]}
+              $sum: { $subtract: ["$totalAmount", "$itemRefunds"] },
             },
           },
         },
       ]),
     ]);
 
-console.log("revenue", revenueResult)
-	const totalRevenue= revenueResult[0]?.totalRevenue || 0
+  const totalRevenue = revenueResult[0]?.totalRevenue || 0;
 
-return {
-  message: "Orders fetched successfully",
-  data: {
-	orders,
+  return {
+    message: "Orders fetched successfully",
+    data: {
+      orders,
 
-	orderStats:{
-		totalOrders,
-		pendingShipments,
-		totalRevenue,
-	},
+      orderStats: {
+        totalOrders,
+        pendingShipments,
+        totalRevenue,
+      },
 
-	pagination: {
-		totalPages: Math.ceil(totalOrders/limit),
-		currentPage: Number(page),
-		limit: Number(limit),
-	}
-  }
+      pagination: {
+        totalPages: Math.ceil(totalOrders / limit),
+        currentPage: Number(page),
+        limit: Number(limit),
+      },
+    },
+  };
 };
 
-}
-
 // Get order by ID
-export const getOrderByIdService= async(orderId)=>{
-console.log(orderId)
-  const order= await Order.findById(orderId)
-  .populate("user", "fullName email phoneNumber avatar")
-  .lean()
+export const getOrderByIdService = async (orderId) => {
+  const order = await Order.findById(orderId)
+    .populate("user", "fullName email phoneNumber avatar")
+    .lean();
 
-  if(!order){
-    throw new AppError("Order not found", HTTP_STATUS.NOT_FOUND)
+  if (!order) {
+    throw new AppError("Order not found", HTTP_STATUS.NOT_FOUND);
   }
 
   return {
     message: "Order fetched successfully",
-    data: order
-  }
-
-}
-
+    data: order,
+  };
+};
 
 // UPdate All order status
 export const updateOrderStatusService = async ({ orderId, orderStatus }) => {
@@ -128,7 +132,6 @@ export const updateOrderStatusService = async ({ orderId, orderStatus }) => {
   if (!order) {
     throw new AppError("Order not found", HTTP_STATUS.NOT_FOUND);
   }
-
 
   const canCancelOrder = order.items.every(
     (item) =>
@@ -143,8 +146,6 @@ export const updateOrderStatusService = async ({ orderId, orderStatus }) => {
     );
   }
 
-
-
   const currentStatus = order.orderStatus;
 
   const allowedStatuses = ORDER_STATUS_TRANSITIONS[currentStatus] || [];
@@ -156,96 +157,90 @@ export const updateOrderStatusService = async ({ orderId, orderStatus }) => {
     );
   }
 
- 
-  if (orderStatus === ORDER_STATUSES.CANCELLED) {if (orderStatus === ORDER_STATUSES.CANCELLED) {
-  if (order.paymentStatus === "FULLY_REFUNDED") {
-    throw new AppError(
-      "Order already refunded",
-      HTTP_STATUS.BAD_REQUEST,
-    );
-  }
+  if (orderStatus === ORDER_STATUSES.CANCELLED) {
+    if (orderStatus === ORDER_STATUSES.CANCELLED) {
+      if (order.paymentStatus === "FULLY_REFUNDED") {
+        throw new AppError("Order already refunded", HTTP_STATUS.BAD_REQUEST);
+      }
 
-  const refundableItems = order.items.filter(
-    (item) =>
-      ![
-        ITEM_STATUSES.DELIVERED,
-        ITEM_STATUSES.CANCELLED,
-      ].includes(item.itemStatus),
-  );
+      const refundableItems = order.items.filter(
+        (item) =>
+          ![ITEM_STATUSES.DELIVERED, ITEM_STATUSES.CANCELLED].includes(
+            item.itemStatus,
+          ),
+      );
 
-  let refundAmount = 0;
+      let refundAmount = 0;
 
-  for (const item of refundableItems) {
-    item.itemStatus = ITEM_STATUSES.CANCELLED;
+      for (const item of refundableItems) {
+        item.itemStatus = ITEM_STATUSES.CANCELLED;
 
-    item.itemStatusHistory.push({
-      status: ITEM_STATUSES.CANCELLED,
-      updatedBy: "ADMIN",
-    });
+        item.itemStatusHistory.push({
+          status: ITEM_STATUSES.CANCELLED,
+          updatedBy: "ADMIN",
+        });
 
-    item.cancellation = {
-      cancelledAt: new Date(),
-      cancelledBy: "ADMIN",
-    };
+        item.cancellation = {
+          cancelledAt: new Date(),
+          cancelledBy: "ADMIN",
+        };
 
-    await Variant.updateOne(
-      { _id: item.variantId },
-      {
-        $inc: {
-          stock: item.quantity,
-        },
-      },
-    );
+        await Variant.updateOne(
+          { _id: item.variantId },
+          {
+            $inc: {
+              stock: item.quantity,
+            },
+          },
+        );
 
-    if (
-      ["RAZORPAY", "WALLET"].includes(order.paymentMethod) &&
-      order.paymentStatus === "PAID" &&
-      item.refundStatus !== "COMPLETED"
-    ) {
-      const refund = calculateItemRefund({
-        order,
-        item,
-        operation: "CANCELLATION",
+        if (
+          ["RAZORPAY", "WALLET"].includes(order.paymentMethod) &&
+          order.paymentStatus === "PAID" &&
+          item.refundStatus !== "COMPLETED"
+        ) {
+          const refund = calculateItemRefund({
+            order,
+            item,
+            operation: "CANCELLATION",
+          });
+
+          refundAmount += refund;
+
+          item.refundAmount = refund;
+          item.refundStatus = "COMPLETED";
+        }
+      }
+
+      if (
+        ["RAZORPAY", "WALLET"].includes(order.paymentMethod) &&
+        order.paymentStatus === "PAID" &&
+        refundAmount > 0
+      ) {
+        await creditWallet({
+          userId: order.user,
+          amount: refundAmount,
+          reason: "ORDER_CANCELLED",
+          description: `Refund for cancelled order ${order.orderNumber}`,
+          referenceId: order._id,
+        });
+
+        order.paymentStatus = "FULLY_REFUNDED";
+      }
+
+      order.orderStatus = ORDER_STATUSES.CANCELLED;
+
+      order.statusHistory.push({
+        status: ORDER_STATUSES.CANCELLED,
+        updatedBy: "ADMIN",
       });
 
-      refundAmount += refund;
-
-      item.refundAmount = refund;
-      item.refundStatus = "COMPLETED";
+      order.cancellation = {
+        cancelledAt: new Date(),
+        cancelledBy: "ADMIN",
+      };
     }
-  }
-
-  if (
-    ["RAZORPAY", "WALLET"].includes(order.paymentMethod) &&
-    order.paymentStatus === "PAID" &&
-    refundAmount > 0
-  ) {
-    await creditWallet({
-      userId: order.user,
-      amount: refundAmount,
-      reason: "ORDER_CANCELLED",
-      description: `Refund for cancelled order ${order.orderNumber}`,
-      referenceId: order._id,
-    });
-
-    order.paymentStatus = "FULLY_REFUNDED";
-  }
-
-  order.orderStatus = ORDER_STATUSES.CANCELLED;
-
-  order.statusHistory.push({
-    status: ORDER_STATUSES.CANCELLED,
-    updatedBy: "ADMIN",
-  });
-
-  order.cancellation = {
-    cancelledAt: new Date(),
-    cancelledBy: "ADMIN",
-  };
-}
-  }
-
-  else {
+  } else {
     for (const item of order.items) {
       if (item.itemStatus === currentStatus) {
         item.itemStatus = orderStatus;
@@ -271,7 +266,7 @@ export const updateOrderStatusService = async ({ orderId, orderStatus }) => {
     order.paymentStatus !== "PAID"
   ) {
     order.paymentStatus = "PAID";
-     await processReferralReward(order.user);
+    await processReferralReward(order.user);
   }
 
   await order.save();
@@ -281,7 +276,6 @@ export const updateOrderStatusService = async ({ orderId, orderStatus }) => {
     data: order,
   };
 };
-
 
 //Update orderitem status
 export const updateOrderItemStatusService = async ({
@@ -314,52 +308,47 @@ export const updateOrderItemStatusService = async ({
     updatedBy: "ADMIN",
   });
 
+  if (status === ITEM_STATUSES.CANCELLED) {
+    if (item.refundStatus === "COMPLETED") {
+      throw new AppError("Item already refunded", HTTP_STATUS.BAD_REQUEST);
+    }
 
- if (status === ITEM_STATUSES.CANCELLED) {
-   if (item.refundStatus === "COMPLETED") {
-     throw new AppError("Item already refunded", HTTP_STATUS.BAD_REQUEST);
-   }
+    item.cancellation = {
+      cancelledAt: new Date(),
+      cancelledBy: "ADMIN",
+    };
 
-   item.cancellation = {
-     cancelledAt: new Date(),
-     cancelledBy: "ADMIN",
-   };
+    await Variant.updateOne(
+      { _id: item.variantId },
+      {
+        $inc: {
+          stock: item.quantity,
+        },
+      },
+    );
 
+    if (
+      ["RAZORPAY", "WALLET"].includes(order.paymentMethod) &&
+      order.paymentStatus === "PAID"
+    ) {
+      const refundAmount = calculateItemRefund({
+        order,
+        item,
+        operation: "CANCELLATION",
+      });
 
-   await Variant.updateOne(
-     { _id: item.variantId },
-     {
-       $inc: {
-         stock: item.quantity,
-       },
-     },
-   );
+      await creditWallet({
+        userId: order.user,
+        amount: refundAmount,
+        reason: "ITEM_CANCELLED",
+        description: `Refund for cancelled item ${item.name}`,
+        referenceId: order._id,
+      });
 
-  
-   if (
-     ["RAZORPAY", "WALLET"].includes(order.paymentMethod) &&
-     order.paymentStatus === "PAID"
-   ) {
-     const refundAmount = calculateItemRefund({
-       order,
-       item,
-       operation: "CANCELLATION",
-     });
-
-     await creditWallet({
-       userId: order.user,
-       amount: refundAmount,
-       reason: "ITEM_CANCELLED",
-       description: `Refund for cancelled item ${item.name}`,
-       referenceId: order._id,
-     });
-
-     item.refundAmount = refundAmount;
-     item.refundStatus = "COMPLETED";
-   }
- }
-
-
+      item.refundAmount = refundAmount;
+      item.refundStatus = "COMPLETED";
+    }
+  }
 
   if (
     order.items.every((item) => item.itemStatus === ITEM_STATUSES.DELIVERED) &&
@@ -382,33 +371,33 @@ export const updateOrderItemStatusService = async ({
     }
   }
 
-if (
-  order.items.every((item) => item.itemStatus === ITEM_STATUSES.CANCELLED) &&
-  order.orderStatus !== ORDER_STATUSES.CANCELLED
-) {
-  order.orderStatus = ORDER_STATUSES.CANCELLED;
-
-  order.statusHistory.push({
-    status: ORDER_STATUSES.CANCELLED,
-    updatedBy: "ADMIN",
-  });
-
-  order.cancellation = {
-    cancelledAt: new Date(),
-    cancelledBy: "ADMIN",
-  };
-
   if (
-    ["RAZORPAY", "WALLET"].includes(order.paymentMethod) &&
-    order.paymentStatus === "PAID"
+    order.items.every((item) => item.itemStatus === ITEM_STATUSES.CANCELLED) &&
+    order.orderStatus !== ORDER_STATUSES.CANCELLED
   ) {
-    order.paymentStatus = "FULLY_REFUNDED";
+    order.orderStatus = ORDER_STATUSES.CANCELLED;
+
+    order.statusHistory.push({
+      status: ORDER_STATUSES.CANCELLED,
+      updatedBy: "ADMIN",
+    });
+
+    order.cancellation = {
+      cancelledAt: new Date(),
+      cancelledBy: "ADMIN",
+    };
+
+    if (
+      ["RAZORPAY", "WALLET"].includes(order.paymentMethod) &&
+      order.paymentStatus === "PAID"
+    ) {
+      order.paymentStatus = "FULLY_REFUNDED";
+    }
   }
-}
 
   await order.save();
 
   return {
     message: "Item status updated successfully",
   };
-}; 
+};

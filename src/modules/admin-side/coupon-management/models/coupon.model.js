@@ -1,11 +1,10 @@
-import mongoose from "mongoose"
+import mongoose from "mongoose";
 
 const couponSchema = new mongoose.Schema(
   {
     code: {
       type: String,
       required: true,
-      unique: true,
       uppercase: true,
       trim: true,
     },
@@ -88,28 +87,27 @@ const couponSchema = new mongoose.Schema(
   },
 );
 
-couponSchema.virtual("status").get(function(){
-   const now = new Date();
+couponSchema.virtual("status").get(function () {
+  const now = new Date();
 
-   if (this.isDeleted) {
-     return "DELETED";
-   }
+  if (this.isDeleted) {
+    return "DELETED";
+  }
 
-   if (!this.isActive) {
-     return "INACTIVE";
-   }
+  if (!this.isActive) {
+    return "INACTIVE";
+  }
 
-   if (this.startDate > now) {
-     return "SCHEDULED";
-   }
+  if (this.startDate > now) {
+    return "SCHEDULED";
+  }
 
-   if (this.expiryDate < now) {
-     return "EXPIRED";
-   }
+  if (this.expiryDate < now) {
+    return "EXPIRED";
+  }
 
-   return "ACTIVE";
-})
-
+  return "ACTIVE";
+});
 
 couponSchema.index({
   isActive: 1,
@@ -117,4 +115,4 @@ couponSchema.index({
   expiryDate: 1,
 });
 
-export const Coupon= mongoose.model("Coupon", couponSchema)
+export const Coupon = mongoose.model("Coupon", couponSchema);

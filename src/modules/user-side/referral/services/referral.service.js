@@ -1,4 +1,4 @@
-import { mongoose } from "mongoose"; // ✅ Import mongoose for transactions
+import { mongoose } from "mongoose";
 import { User } from "../../user-profile/models/user.model.js";
 import { creditWallet } from "../../wallet/services/wallet.service.js";
 import {
@@ -7,7 +7,6 @@ import {
 } from "../constants/referral.constants.js";
 
 export const processReferralReward = async (userId) => {
-
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -30,7 +29,6 @@ export const processReferralReward = async (userId) => {
       { session },
     );
 
-   
     await creditWallet(
       {
         userId: user._id,
@@ -41,7 +39,6 @@ export const processReferralReward = async (userId) => {
       },
       { session },
     );
-
 
     await User.findByIdAndUpdate(
       user.referredBy,
@@ -54,10 +51,8 @@ export const processReferralReward = async (userId) => {
       { session },
     );
 
-
     user.referralBonusProcessed = true;
     await user.save({ session });
-
 
     await session.commitTransaction();
   } catch (error) {

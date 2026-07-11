@@ -1,11 +1,19 @@
 import Joi from "joi";
-import { confirmPassword, dateOfBirth, email, fullName, gender, otp, password, phoneNumber } from "../../../../common/validation/base.validation.js";
-
+import {
+  confirmPassword,
+  dateOfBirth,
+  email,
+  fullName,
+  gender,
+  otp,
+  password,
+  phoneNumber,
+} from "../../../../common/validation/base.validation.js";
 
 //Change Email
 export const changeEmailSchema = Joi.object({
   email: email.required(),
-}); 
+});
 
 //Verify email
 export const verifyEmailChangeSchema = Joi.object({
@@ -20,11 +28,9 @@ export const changePasswordSchema = Joi.object({
   confirmPassword: confirmPassword("newPassword").required(),
 });
 
-
-export const updateProfileSchema= Joi.object({
+export const updateProfileSchema = Joi.object({
   fullName: fullName.optional(),
   phoneNumber: phoneNumber.optional(),
   gender: gender.optional(),
   dateOfBirth: dateOfBirth.optional(),
-}).min(1)
-
+}).min(1);

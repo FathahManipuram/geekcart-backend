@@ -1,4 +1,4 @@
-import mongoose from 'mongoose'
+import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema(
   {
@@ -59,7 +59,7 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
-	
+
     totalReferralEarnings: {
       type: Number,
       default: 0,
@@ -68,4 +68,4 @@ const userSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-export const User= mongoose.model("User", userSchema)
+export const User = mongoose.model("User", userSchema);

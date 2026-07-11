@@ -57,7 +57,6 @@ export const createCouponSchema = Joi.object({
       otherwise: Joi.allow(null, ""),
     }),
 
-
   usageLimit: Joi.number()
     .integer()
     .positive()
@@ -133,7 +132,6 @@ export const createCouponSchema = Joi.object({
 
   isActive: Joi.boolean().default(true),
 });
-
 
 export const updateCouponSchema = createCouponSchema.fork(
   [

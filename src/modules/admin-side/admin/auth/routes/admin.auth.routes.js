@@ -1,6 +1,6 @@
-import {Router} from 'express'
-import { adminLoginController } from '../controllers/admin.auth.controller'
+import { Router } from "express";
+import { adminLoginController } from "../controllers/admin.auth.controller";
 
-const router = Router()
+const router = Router();
 
-router.post("/admin/login",  adminLoginController)
+router.post("/admin/login", adminLoginController);

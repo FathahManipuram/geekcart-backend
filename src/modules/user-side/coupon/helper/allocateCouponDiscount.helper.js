@@ -1,4 +1,3 @@
-
 export const allocateCouponDiscount = ({
   items = [],
   totalCouponDiscount = 0,

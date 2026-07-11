@@ -1,4 +1,4 @@
-import { model, Schema, Types } from "mongoose"
+import { model, Schema, Types } from "mongoose";
 
 const productSchema = new Schema(
   {
@@ -57,8 +57,8 @@ productSchema.index({
 });
 
 productSchema.index({
-	name: "text",
-	description: "text",
-})
+  name: "text",
+  description: "text",
+});
 
-export const Product = model("Product", productSchema)
+export const Product = model("Product", productSchema);

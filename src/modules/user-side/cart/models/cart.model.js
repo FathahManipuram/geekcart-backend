@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 
-
 const cartItemSchema = new mongoose.Schema(
   {
     productId: {
@@ -31,7 +30,6 @@ const cartItemSchema = new mongoose.Schema(
   },
 );
 
-
 const cartSchema = new mongoose.Schema(
   {
     userId: {
@@ -52,7 +50,5 @@ const cartSchema = new mongoose.Schema(
     timestamps: true,
   },
 );
-
-
 
 export const Cart = mongoose.model("Cart", cartSchema);

@@ -6,48 +6,42 @@ import { applyOffersToProducts } from "../../offer/helpers/applyOffersToProducts
 import { applyOfferToProduct } from "../../offer/helpers/applyOfferToProduct.helper.js";
 import { getActiveOffers } from "../../offer/helpers/getActiveOffers.helper.js";
 
-
-
-
-
-
 //Get prodect details
 export const getProductDetailsService = async (slug) => {
-
   const product = await Product.findOne({
-	slug,
-	isDeleted: false,
+    slug,
+    isDeleted: false,
   })
-	.populate("category", "name")
-	.populate("subcategory", "name")
-	.lean();
+    .populate("category", "name")
+    .populate("subcategory", "name")
+    .lean();
 
-  
   if (!product) {
-	throw new AppError("Product not found", HTTP_STATUS.NOT_FOUND);
+    throw new AppError("Product not found", HTTP_STATUS.NOT_FOUND);
   }
 
-  
   const variants = await Variant.find({
-	product: product._id,
-	isDeleted: false,
+    product: product._id,
+    isDeleted: false,
   }).lean();
 
-  const productWithVariants={
+  const productWithVariants = {
     ...product,
-    variants
-  }
+    variants,
+  };
 
-const offers= await getActiveOffers()
-  const productWithOffers= applyOfferToProduct({product: productWithVariants, offers})
+  const offers = await getActiveOffers();
+  const productWithOffers = applyOfferToProduct({
+    product: productWithVariants,
+    offers,
+  });
 
   return {
-	message: "Product details fetched successfully",
+    message: "Product details fetched successfully",
 
-	data: productWithOffers,
-  }
+    data: productWithOffers,
+  };
 };
-
 
 //Get similar product
 export const getSimilarProductsService = async (slug) => {
@@ -69,7 +63,6 @@ export const getSimilarProductsService = async (slug) => {
     .populate("subcategory", "name")
     .lean();
 
-
   const productIds = products.map((product) => product._id);
 
   const variants = await Variant.find({
@@ -80,20 +73,19 @@ export const getSimilarProductsService = async (slug) => {
     isActive: true,
   }).lean();
 
-    const productWithVariants = products.map((product) => ({
-      ...product,
-      variants: variants.filter(
-        (variant) => variant.product.toString() === product._id.toString(),
-      ),
-    }));
+  const productWithVariants = products.map((product) => ({
+    ...product,
+    variants: variants.filter(
+      (variant) => variant.product.toString() === product._id.toString(),
+    ),
+  }));
 
-  
-   const offers = await getActiveOffers();
+  const offers = await getActiveOffers();
   const formattedProducts = applyOffersToProducts({
     products: productWithVariants,
-    offers
+    offers,
   });
-  
+
   return {
     message: "Similar products fetched successfully",
     data: formattedProducts,

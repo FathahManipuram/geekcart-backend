@@ -19,7 +19,6 @@ export const syncCartPricesAndOffers = async (cart, offers) => {
       price: variant.price,
     });
 
-    // Highlight: Convert both sides to fixed decimals or numbers before checking mismatch
     const isPriceDifferent = Number(item.price) !== Number(variant.price);
     const isSalePriceDifferent =
       Number(item.salePrice).toFixed(2) !== Number(offer.salePrice).toFixed(2);
@@ -45,7 +44,6 @@ export const syncCartPricesAndOffers = async (cart, offers) => {
     item.discountAmount = offer.discount;
     item.appliedOffer = offer.appliedOffer;
   }
-
 
   if (hasChanges) {
     cart.markModified("items");

@@ -2,10 +2,8 @@ import { Order } from "../../../user-side/order/models/order.model.js";
 import { buildDateFilter } from "../../sales-report/helper/buildDateFilter.helper.js";
 
 export const getTopSubcategories = async (type) => {
-
   const dateFilter = buildDateFilter({ type });
   const topSubcategories = await Order.aggregate([
-    
     {
       $match: {
         orderStatus: { $in: ["PLACED", "SHIPPED", "DELIVERED"] },
@@ -13,12 +11,10 @@ export const getTopSubcategories = async (type) => {
       },
     },
 
-    // 2. Unpack individual item rows
     {
       $unwind: "$items",
     },
 
-    // 3. Filter out cancellations and returns
     {
       $match: {
         "items.itemStatus": {
@@ -27,7 +23,6 @@ export const getTopSubcategories = async (type) => {
       },
     },
 
-    // 4. Join the live product collection safely
     {
       $lookup: {
         from: "products",
@@ -37,14 +32,12 @@ export const getTopSubcategories = async (type) => {
       },
     },
     {
-      // FIX: Use an Outer Join layout so historical items with missing/deleted products aren't discarded
       $unwind: {
         path: "$productInfo",
         preserveNullAndEmptyArrays: true,
       },
     },
 
-    // 5. Group by Subcategory ID, assigning a fallback tag if the live product lookup returned null
     {
       $group: {
         _id: {
@@ -54,17 +47,14 @@ export const getTopSubcategories = async (type) => {
       },
     },
 
-    // 6. Sort by sales volume high-to-low
     {
       $sort: { totalSold: -1 },
     },
 
-    // 7. Restrict output to top 10 results
     {
       $limit: 10,
     },
 
-    // 8. Pull subcategory text/metadata details
     {
       $lookup: {
         from: "subcategories",
@@ -80,7 +70,6 @@ export const getTopSubcategories = async (type) => {
       },
     },
 
-    // 9. Shape clean frontend projections with robust fallbacks
     {
       $project: {
         _id: 1,

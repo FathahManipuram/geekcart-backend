@@ -5,9 +5,6 @@ import { applyOffersToProducts } from "../../offer/helpers/applyOffersToProducts
 import { getActiveOffers } from "../../offer/helpers/getActiveOffers.helper.js";
 
 export const getHomeDataService = async () => {
-
-
-
   const [categories, offers, products] = await Promise.all([
     Subcategory.find({ isDeleted: false, isActive: true })
       .select("name image slug")
@@ -23,39 +20,13 @@ export const getHomeDataService = async () => {
       .lean(),
   ]);
 
-
-  
-  // const categories = await Subcategory.find({
-  //   isDeleted: false,
-  //   isActive: true,
-  // })
-  //   .select("name image slug")
-  //   .limit(4)
-  //   .lean();
-
-
-  // const products = await Product.find({
-  //   isDeleted: false,
-  //   isActive: true,
-  // })
-  //   .populate("subcategory", "name")
-  //   .sort({ createdAt: -1 })
-  //   .limit(8)
-  //   .lean();
-
-
-
   const productIds = products.map((product) => product._id);
-
 
   const variants = await Variant.find({
     product: { $in: productIds },
     isDeleted: false,
-   // isActive: true,
+    // isActive: true,
   }).lean();
-
-
- // const offers = await getActiveOffers();
 
   const productsWithVariants = products.map((product) => ({
     ...product,
@@ -64,9 +35,10 @@ export const getHomeDataService = async () => {
     ),
   }));
 
- 
-  const offeredProducts = applyOffersToProducts({products: productsWithVariants, offers});
-
+  const offeredProducts = applyOffersToProducts({
+    products: productsWithVariants,
+    offers,
+  });
 
   const formattedProducts = offeredProducts.map((product) => {
     const defaultVariant =

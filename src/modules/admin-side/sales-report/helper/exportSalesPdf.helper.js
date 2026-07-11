@@ -18,7 +18,6 @@ export const exportSalesPdf = (report, filters = {}) => {
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 
-
     // LAYOUT CONSTANTS
 
     const PAGE_WIDTH = doc.page.width;
@@ -61,7 +60,6 @@ export const exportSalesPdf = (report, filters = {}) => {
       net: 0,
     };
 
-
     // HELPER FUNCTIONS FOR RENDERING
 
     const drawHeaderBlock = () => {
@@ -86,7 +84,6 @@ export const exportSalesPdf = (report, filters = {}) => {
       }
       doc.text(`Reporting Period: ${periodText}`, MARGIN, 72);
     };
-
 
     const drawSummaryGrid = (calculatedTotals) => {
       const topY = 95;
@@ -167,8 +164,7 @@ export const exportSalesPdf = (report, filters = {}) => {
       });
     };
 
-
-    // INITIAL SETUP & PROCESSING 
+    // INITIAL SETUP & PROCESSING
 
     drawHeaderBlock();
 
@@ -202,7 +198,6 @@ export const exportSalesPdf = (report, filters = {}) => {
           0,
         ) || 0;
 
-
       const netNum = Math.max(
         0,
         (Number(order.totalAmount) || 0) - refundedAmtNum,
@@ -218,13 +213,11 @@ export const exportSalesPdf = (report, filters = {}) => {
       runningTotals.net += netNum;
     });
 
-
     drawSummaryGrid(runningTotals);
 
     let currentY = 160;
     drawTableHeader(currentY);
     currentY += 24;
-
 
     // TRANSACTIONS PRINTING LOOP
 
@@ -367,7 +360,6 @@ export const exportSalesPdf = (report, filters = {}) => {
       currentY += rowHeight;
     });
 
-
     // TOTALS ROW
 
     if (currentY + 22 > PAGE_HEIGHT - 50) {
@@ -442,7 +434,6 @@ export const exportSalesPdf = (report, filters = {}) => {
       .strokeColor("#000000")
       .lineWidth(1.5)
       .stroke();
-
 
     // FOOTER
 

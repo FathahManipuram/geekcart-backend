@@ -1,6 +1,10 @@
 import { Router } from "express";
 import authMiddleware from "../../../../common/middleware/auth.middleware.js";
-import { addToWishlistController, getWishlistController, removeWishlistController } from "../controllers/wishlist.controller.js";
+import {
+  addToWishlistController,
+  getWishlistController,
+  removeWishlistController,
+} from "../controllers/wishlist.controller.js";
 
 const router = Router();
 
@@ -10,4 +14,4 @@ router.get("/", authMiddleware, getWishlistController);
 
 router.delete("/:variantId", authMiddleware, removeWishlistController);
 
-export default router
+export default router;

@@ -7,7 +7,6 @@ export const validateCoupon = async ({ userId, coupon, subtotal }) => {
     throw new AppError("Coupon not found", HTTP_STATUS.NOT_FOUND);
   }
 
-
   if (!coupon.isActive) {
     throw new AppError("Coupon is inactive", HTTP_STATUS.BAD_REQUEST);
   }
@@ -30,7 +29,6 @@ export const validateCoupon = async ({ userId, coupon, subtotal }) => {
       HTTP_STATUS.BAD_REQUEST,
     );
   }
-
 
   if (coupon.perUserLimit) {
     const userUsageCount = await getCouponUsageByUser({

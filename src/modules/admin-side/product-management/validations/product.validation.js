@@ -1,13 +1,23 @@
 import Joi from "joi";
-import { categoryName, color, costPrice, description, fabric, price, productName, size, sku, sleeve, stock } from "../../../../common/validation/base.validation.js";
-
+import {
+  categoryName,
+  color,
+  costPrice,
+  description,
+  fabric,
+  price,
+  productName,
+  size,
+  sku,
+  sleeve,
+  stock,
+} from "../../../../common/validation/base.validation.js";
 
 const variantGroupValidationSchema = Joi.object({
   color: color.required(),
   sizes: Joi.array().items(size).min(1).required(),
   images: Joi.array().items(Joi.string()).optional(),
 });
-
 
 const variantSchema = Joi.object({
   size: size.required(),
@@ -28,7 +38,7 @@ export const createProductSchema = Joi.object({
   description: description.required().messages({
     "string.empty": "Description is required",
   }),
-  // coverImage: Joi.any().optional(),
+
   coverImage: Joi.alternatives().try(Joi.string(), Joi.object()).optional(),
   category: categoryName.required(),
   subcategory: categoryName.required(),

@@ -1,7 +1,10 @@
 import Joi from "joi";
-import { confirmPassword, email, fullName, password } from "../../../common/validation/base.validation.js";
-
-
+import {
+  confirmPassword,
+  email,
+  fullName,
+  password,
+} from "../../../common/validation/base.validation.js";
 
 //Register
 export const registerSchema = Joi.object({
