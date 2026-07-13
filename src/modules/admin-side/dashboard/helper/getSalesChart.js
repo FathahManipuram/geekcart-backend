@@ -1,5 +1,4 @@
 import { Order } from "../../../user-side/order/models/order.model.js";
-import { SUCCESSFUL_ITEM_STATUSES } from "../../sales-report/constants/sales.constants.js";
 import { buildDateFilter } from "../../sales-report/helper/buildDateFilter.helper.js";
 
 export const getSalesChart = async (type = "monthly") => {
@@ -25,7 +24,13 @@ export const getSalesChart = async (type = "monthly") => {
     sortExpression = { "_id.label": 1 };
   } else if (type === "weekly") {
     groupExpression = {
-      label: { $dateToString: { format: "W%U", date: "$createdAt" } },
+      label: {
+        $dateToString: {
+          format: "Week %U",
+          date: "$createdAt",
+          timezone: "Asia/Kolkata",
+        },
+      },
     };
     sortExpression = { "_id.label": 1 };
   } else if (type === "yearly") {
@@ -46,53 +51,9 @@ export const getSalesChart = async (type = "monthly") => {
     {
       $project: {
         createdAt: 1,
-
-        couponDiscount: {
-          $cond: [
-            {
-              $gt: [
-                {
-                  $size: {
-                    $filter: {
-                      input: { $ifNull: ["$items", []] },
-                      as: "item",
-                      cond: {
-                        $in: ["$$item.itemStatus", SUCCESSFUL_ITEM_STATUSES],
-                      },
-                    },
-                  },
-                },
-                0,
-              ],
-            },
-            { $ifNull: ["$coupon.discountAmount", 0] },
-            0,
-          ],
-        },
-
-        grossSalesInOrder: {
-          $reduce: {
-            input: { $ifNull: ["$items", []] },
-            initialValue: 0,
-            in: {
-              $add: [
-                "$$value",
-                {
-                  $cond: [
-                    { $in: ["$$this.itemStatus", SUCCESSFUL_ITEM_STATUSES] },
-                    {
-                      $multiply: [
-                        { $ifNull: ["$$this.salePrice", "$$this.price"] },
-                        "$$this.quantity",
-                      ],
-                    },
-                    0,
-                  ],
-                },
-              ],
-            },
-          },
-        },
+        subtotal: { $ifNull: ["$subtotal", 0] },
+        deliveryCharge: { $ifNull: ["$deliveryCharge", 0] },
+        couponDiscount: { $ifNull: ["$coupon.discountAmount", 0] },
 
         offerDiscountInOrder: {
           $reduce: {
@@ -105,9 +66,7 @@ export const getSalesChart = async (type = "monthly") => {
                   $cond: [
                     {
                       $and: [
-                        {
-                          $in: ["$$this.itemStatus", SUCCESSFUL_ITEM_STATUSES],
-                        },
+                        { $ne: ["$$this.itemStatus", "CANCELLED"] },
                         { $ifNull: ["$$this.appliedOffer", false] },
                         {
                           $gt: [
@@ -122,11 +81,10 @@ export const getSalesChart = async (type = "monthly") => {
                         },
                       ],
                     },
-
                     {
                       $multiply: [
                         "$$this.appliedOffer.discountAmount",
-                        "$$this.quantity",
+                        { $ifNull: ["$$this.quantity", 1] },
                       ],
                     },
                     0,
@@ -137,7 +95,7 @@ export const getSalesChart = async (type = "monthly") => {
           },
         },
 
-        refundedInOrder: {
+        totalRefundedAmountInOrder: {
           $reduce: {
             input: { $ifNull: ["$items", []] },
             initialValue: 0,
@@ -146,7 +104,12 @@ export const getSalesChart = async (type = "monthly") => {
                 "$$value",
                 {
                   $cond: [
-                    { $eq: ["$$this.itemStatus", "RETURN_COMPLETED"] },
+                    {
+                      $in: [
+                        "$$this.itemStatus",
+                        ["CANCELLED", "RETURN_COMPLETED"],
+                      ],
+                    },
                     { $ifNull: ["$$this.refundAmount", 0] },
                     0,
                   ],
@@ -165,12 +128,12 @@ export const getSalesChart = async (type = "monthly") => {
             0,
             {
               $subtract: [
-                "$grossSalesInOrder",
+                { $add: ["$subtotal", "$deliveryCharge"] },
                 {
                   $add: [
                     "$couponDiscount",
                     "$offerDiscountInOrder",
-                    "$refundedInOrder",
+                    "$totalRefundedAmountInOrder",
                   ],
                 },
               ],
@@ -230,6 +193,16 @@ export const getSalesChart = async (type = "monthly") => {
       if (item.label) salesMap[item.label] = item.sales;
     });
     return hours.map((hour) => ({ label: hour, sales: salesMap[hour] }));
+  }
+
+  if (type === "weekly") {
+    if (salesChart.length === 0) {
+      const currentWeekNum = Math.ceil(new Date().getDate() / 7);
+      return [
+        { label: `Week ${String(currentWeekNum).padStart(2, "0")}`, sales: 0 },
+      ];
+    }
+    return salesChart;
   }
 
   return salesChart;

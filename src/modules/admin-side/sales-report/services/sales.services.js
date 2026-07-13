@@ -51,7 +51,9 @@ export const getSalesReportService = async ({
       },
       {
         $project: {
-          subtotal: 1,
+          subtotal: { $ifNull: ["$subtotal", 0] },
+          totalAmount: { $ifNull: ["$totalAmount", 0] },
+          deliveryCharge: { $ifNull: ["$deliveryCharge", 0] },
           couponDiscount: { $ifNull: ["$coupon.discountAmount", 0] },
           itemsCount: { $size: { $ifNull: ["$items", []] } },
 
@@ -151,12 +153,45 @@ export const getSalesReportService = async ({
             },
           },
 
-          refundedInOrder: {
+          totalRefundedAmountInOrder: {
             $reduce: {
-              input: "$items",
+              input: { $ifNull: ["$items", []] },
               initialValue: 0,
               in: {
-                $add: ["$$value", { $ifNull: ["$$this.refundAmount", 0] }],
+                $add: [
+                  "$$value",
+                  {
+                    $cond: [
+                      {
+                        $in: [
+                          "$$this.itemStatus",
+                          ["CANCELLED", "RETURN_COMPLETED"],
+                        ],
+                      },
+                      { $ifNull: ["$$this.refundAmount", 0] },
+                      0,
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+
+          returnedRefundAmountInOrder: {
+            $reduce: {
+              input: { $ifNull: ["$items", []] },
+              initialValue: 0,
+              in: {
+                $add: [
+                  "$$value",
+                  {
+                    $cond: [
+                      { $eq: ["$$this.itemStatus", "RETURN_COMPLETED"] },
+                      { $ifNull: ["$$this.refundAmount", 0] },
+                      0,
+                    ],
+                  },
+                ],
               },
             },
           },
@@ -165,25 +200,39 @@ export const getSalesReportService = async ({
       {
         $project: {
           subtotal: 1,
+          deliveryCharge: 1,
           couponDiscount: 1,
           itemsCount: 1,
           itemsSoldInOrder: 1,
           offerDiscountInOrder: 1,
           cancelledInOrder: 1,
           returnedInOrder: 1,
-          refundedInOrder: 1,
+          totalRefundedAmountInOrder: 1,
+          returnedRefundAmountInOrder: 1,
+
+          grossSalesInOrder: {
+            $max: [
+              0,
+              {
+                $subtract: [
+                  { $add: ["$subtotal", "$deliveryCharge"] },
+                  "$totalRefundedAmountInOrder",
+                ],
+              },
+            ],
+          },
 
           orderNetCalculated: {
             $max: [
               0,
               {
                 $subtract: [
-                  "$subtotal",
+                  { $add: ["$subtotal", "$deliveryCharge"] },
                   {
                     $add: [
                       "$couponDiscount",
                       "$offerDiscountInOrder",
-                      "$refundedInOrder",
+                      "$totalRefundedAmountInOrder",
                     ],
                   },
                 ],
@@ -196,7 +245,10 @@ export const getSalesReportService = async ({
         $group: {
           _id: null,
           overallSalesCount: { $sum: 1 },
-          grossSales: { $sum: "$subtotal" },
+          grossItemSubtotal: { $sum: "$subtotal" },
+          totalDeliveryCharges: { $sum: "$deliveryCharge" },
+
+          grossSales: { $sum: "$grossSalesInOrder" },
           offerDiscount: { $sum: "$offerDiscountInOrder" },
           couponDiscount: { $sum: "$couponDiscount" },
           netSales: { $sum: "$orderNetCalculated" },
@@ -204,7 +256,7 @@ export const getSalesReportService = async ({
           itemsSold: { $sum: "$itemsSoldInOrder" },
           cancelledItems: { $sum: "$cancelledInOrder" },
           returnedItems: { $sum: "$returnedInOrder" },
-          refundedAmount: { $sum: "$refundedInOrder" },
+          refundedAmount: { $sum: "$returnedRefundAmountInOrder" },
         },
       },
     ]),

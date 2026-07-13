@@ -19,7 +19,6 @@ export const exportSalesPdf = (report, filters = {}) => {
     doc.on("error", reject);
 
     // LAYOUT CONSTANTS
-
     const PAGE_WIDTH = doc.page.width;
     const PAGE_HEIGHT = doc.page.height;
     const MARGIN = 30;
@@ -27,18 +26,19 @@ export const exportSalesPdf = (report, filters = {}) => {
 
     const colWidths = {
       orderNo: 60,
-      customer: 85,
-      date: 55,
-      orderedQty: 40,
-      cancelledQty: 40,
-      returnedQty: 40,
-      gross: 70,
-      offer: 65,
-      coupon: 65,
-      refundedAmt: 70,
-      net: 70,
-      payment: 62,
-      status: 60,
+      customer: 80,
+      date: 50,
+      orderedQty: 35,
+      cancelledQty: 35,
+      returnedQty: 35,
+      gross: 65,
+      delivery: 45,
+      offer: 60,
+      coupon: 60,
+      refundedAmt: 65,
+      net: 65,
+      payment: 55,
+      status: 55,
     };
 
     const colX = {};
@@ -54,13 +54,12 @@ export const exportSalesPdf = (report, filters = {}) => {
       cancelledQty: 0,
       returnedQty: 0,
       gross: 0,
+      delivery: 0,
       offer: 0,
       coupon: 0,
       refundedAmt: 0,
       net: 0,
     };
-
-    // HELPER FUNCTIONS FOR RENDERING
 
     const drawHeaderBlock = () => {
       doc
@@ -109,7 +108,7 @@ export const exportSalesPdf = (report, filters = {}) => {
           val: calculatedTotals.coupon,
           isCurrency: true,
         },
-        { label: "Net Sales", val: calculatedTotals.net, isCurrency: true }, // ✅ Perfectly balanced
+        { label: "Net Sales", val: calculatedTotals.net, isCurrency: true },
       ];
 
       kpiItems.forEach((kpi, idx) => {
@@ -137,8 +136,7 @@ export const exportSalesPdf = (report, filters = {}) => {
 
     const drawTableHeader = (y) => {
       doc.rect(MARGIN, y, USABLE_WIDTH, 24).fill("#1E3A8A");
-      doc.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(7.5);
-
+      doc.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(7);
       const headers = [
         { label: "Order No", key: "orderNo", align: "center" },
         { label: "Customer", key: "customer", align: "left" },
@@ -147,6 +145,7 @@ export const exportSalesPdf = (report, filters = {}) => {
         { label: "Can Qty", key: "cancelledQty", align: "center" },
         { label: "Ret Qty", key: "returnedQty", align: "center" },
         { label: "Gross Sub", key: "gross", align: "right" },
+        { label: "Del Chrg", key: "delivery", align: "right" },
         { label: "Offer Disc", key: "offer", align: "right" },
         { label: "Cpn Disc", key: "coupon", align: "right" },
         { label: "Refunded", key: "refundedAmt", align: "right" },
@@ -163,8 +162,6 @@ export const exportSalesPdf = (report, filters = {}) => {
         });
       });
     };
-
-    // INITIAL SETUP & PROCESSING
 
     drawHeaderBlock();
 
@@ -190,6 +187,7 @@ export const exportSalesPdf = (report, filters = {}) => {
         ) || 0;
 
       const grossNum = Number(order.subtotal) || 0;
+      const deliveryNum = Number(order.deliveryCharge) || 0;
       const offerNum = Number(order.discount) || 0;
       const couponNum = Number(order.coupon?.discountAmount) || 0;
       const refundedAmtNum =
@@ -200,13 +198,14 @@ export const exportSalesPdf = (report, filters = {}) => {
 
       const netNum = Math.max(
         0,
-        (Number(order.totalAmount) || 0) - refundedAmtNum,
+        grossNum + deliveryNum - offerNum - couponNum - refundedAmtNum,
       );
 
       runningTotals.orderedQty += orderedQty;
       runningTotals.cancelledQty += cancelledQty;
       runningTotals.returnedQty += returnedQty;
-      runningTotals.gross += grossNum;
+      runningTotals.gross += grossNum + deliveryNum;
+      runningTotals.delivery += deliveryNum;
       runningTotals.offer += offerNum;
       runningTotals.coupon += couponNum;
       runningTotals.refundedAmt += refundedAmtNum;
@@ -218,8 +217,6 @@ export const exportSalesPdf = (report, filters = {}) => {
     let currentY = 160;
     drawTableHeader(currentY);
     currentY += 24;
-
-    // TRANSACTIONS PRINTING LOOP
 
     orders.forEach((order, index) => {
       const orderedQty =
@@ -249,6 +246,7 @@ export const exportSalesPdf = (report, filters = {}) => {
         : "-";
 
       const grossNum = Number(order.subtotal) || 0;
+      const deliveryNum = Number(order.deliveryCharge) || 0;
       const offerNum = Number(order.discount) || 0;
       const couponNum = Number(order.coupon?.discountAmount) || 0;
       const refundedAmtNum =
@@ -256,15 +254,16 @@ export const exportSalesPdf = (report, filters = {}) => {
           (acc, item) => acc + (Number(item.refundAmount) || 0),
           0,
         ) || 0;
+
       const netNum = Math.max(
         0,
-        (Number(order.totalAmount) || 0) - refundedAmtNum,
+        grossNum + deliveryNum - offerNum - couponNum - refundedAmtNum,
       );
 
       const payment = order.paymentMethod || "-";
       const status = order.orderStatus || "-";
 
-      doc.font("Helvetica").fontSize(7.5);
+      doc.font("Helvetica").fontSize(7);
 
       const orderNoHeight = doc.heightOfString(orderNo, {
         width: colWidths.orderNo,
@@ -286,7 +285,7 @@ export const exportSalesPdf = (report, filters = {}) => {
         doc.rect(MARGIN, currentY, USABLE_WIDTH, rowHeight).fill("#F9FAFB");
       }
 
-      const textPaddingTop = (rowHeight - 7.5) / 2;
+      const textPaddingTop = (rowHeight - 7) / 2;
       doc.fillColor("#334155");
 
       doc.text(orderNo, colX.orderNo, currentY + textPaddingTop, {
@@ -322,6 +321,16 @@ export const exportSalesPdf = (report, filters = {}) => {
         width: colWidths.gross - 4,
         align: "right",
       });
+      //Delivery transaction
+      doc.text(
+        deliveryNum.toFixed(2),
+        colX.delivery,
+        currentY + textPaddingTop,
+        {
+          width: colWidths.delivery - 4,
+          align: "right",
+        },
+      );
       doc.text(offerNum.toFixed(2), colX.offer, currentY + textPaddingTop, {
         width: colWidths.offer - 4,
         align: "right",
@@ -361,7 +370,6 @@ export const exportSalesPdf = (report, filters = {}) => {
     });
 
     // TOTALS ROW
-
     if (currentY + 22 > PAGE_HEIGHT - 50) {
       doc.addPage();
       currentY = MARGIN;
@@ -370,7 +378,7 @@ export const exportSalesPdf = (report, filters = {}) => {
     }
 
     doc.rect(MARGIN, currentY, USABLE_WIDTH, 22).fill("#F1F5F9");
-    doc.fillColor("#0F172A").font("Helvetica-Bold").fontSize(7.5);
+    doc.fillColor("#0F172A").font("Helvetica-Bold").fontSize(7);
 
     doc.text("TOTALS", colX.orderNo + 4, currentY + 7, {
       width: colWidths.orderNo,
@@ -393,31 +401,32 @@ export const exportSalesPdf = (report, filters = {}) => {
       { width: colWidths.returnedQty, align: "center" },
     );
 
+    doc.text(`${runningTotals.gross.toFixed(2)}`, colX.gross, currentY + 7, {
+      width: colWidths.gross - 4,
+      align: "right",
+    });
+
     doc.text(
-      `Rs. ${runningTotals.gross.toFixed(2)}`,
-      colX.gross,
+      `${runningTotals.delivery.toFixed(2)}`,
+      colX.delivery,
       currentY + 7,
-      { width: colWidths.gross - 4, align: "right" },
+      { width: colWidths.delivery - 4, align: "right" },
     );
+    doc.text(`${runningTotals.offer.toFixed(2)}`, colX.offer, currentY + 7, {
+      width: colWidths.offer - 4,
+      align: "right",
+    });
+    doc.text(`${runningTotals.coupon.toFixed(2)}`, colX.coupon, currentY + 7, {
+      width: colWidths.coupon - 4,
+      align: "right",
+    });
     doc.text(
-      `Rs. ${runningTotals.offer.toFixed(2)}`,
-      colX.offer,
-      currentY + 7,
-      { width: colWidths.offer - 4, align: "right" },
-    );
-    doc.text(
-      `Rs. ${runningTotals.coupon.toFixed(2)}`,
-      colX.coupon,
-      currentY + 7,
-      { width: colWidths.coupon - 4, align: "right" },
-    );
-    doc.text(
-      `Rs. ${runningTotals.refundedAmt.toFixed(2)}`,
+      `${runningTotals.refundedAmt.toFixed(2)}`,
       colX.refundedAmt,
       currentY + 7,
       { width: colWidths.refundedAmt - 4, align: "right" },
     );
-    doc.text(`Rs. ${runningTotals.net.toFixed(2)}`, colX.net, currentY + 7, {
+    doc.text(`${runningTotals.net.toFixed(2)}`, colX.net, currentY + 7, {
       width: colWidths.net - 4,
       align: "right",
     });
@@ -436,7 +445,6 @@ export const exportSalesPdf = (report, filters = {}) => {
       .stroke();
 
     // FOOTER
-
     const range = doc.bufferedPageRange();
     for (let i = range.start; i < range.start + range.count; i++) {
       doc.switchToPage(i);

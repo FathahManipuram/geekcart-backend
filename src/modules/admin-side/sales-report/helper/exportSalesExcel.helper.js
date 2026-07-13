@@ -17,14 +17,12 @@ export const exportSalesExcel = async (report, filters = {}) => {
   worksheet.getRow(1).height = 30;
 
   // Table Rows Calculation
-
   const startRowIndex = 10;
   const endRowIndex =
     startRowIndex + (orders.length > 0 ? orders.length - 1 : 0);
-  const totalsRowIndex = endRowIndex + 1; // 🏆 Dynamic row pointer where the bottom totals are located
+  const totalsRowIndex = endRowIndex + 1;
 
-  // Summary Grid
-
+  // Summary
   worksheet.getCell("A3").value = "Generated On";
   worksheet.getCell("B3").value = new Date().toLocaleString("en-IN");
 
@@ -52,27 +50,31 @@ export const exportSalesExcel = async (report, filters = {}) => {
   worksheet.getCell("A7").value = "Gross Sales";
   worksheet.getCell("B7").value = {
     formula:
-      orders.length > 0 ? `=SUM(G${startRowIndex}:G${endRowIndex})` : "0",
-    result: Number(summary.grossSales || 0),
+      orders.length > 0
+        ? `=SUM(G${startRowIndex}:G${endRowIndex})+SUM(H${startRowIndex}:H${endRowIndex})`
+        : "0",
+    result: Number(
+      (summary.grossSales || 0) + (summary.totalDeliveryCharges || 0),
+    ),
   };
 
   worksheet.getCell("D5").value = "Offer Discount";
   worksheet.getCell("E5").value = {
     formula:
-      orders.length > 0 ? `=SUM(H${startRowIndex}:H${endRowIndex})` : "0",
+      orders.length > 0 ? `=SUM(I${startRowIndex}:I${endRowIndex})` : "0",
     result: Number(summary.offerDiscount || 0),
   };
 
   worksheet.getCell("D6").value = "Coupon Discount";
   worksheet.getCell("E6").value = {
     formula:
-      orders.length > 0 ? `=SUM(I${startRowIndex}:I${endRowIndex})` : "0",
+      orders.length > 0 ? `=SUM(J${startRowIndex}:J${endRowIndex})` : "0",
     result: Number(summary.couponDiscount || 0),
   };
 
   worksheet.getCell("D7").value = "Net Sales";
   worksheet.getCell("E7").value = {
-    formula: orders.length > 0 ? `=K${totalsRowIndex}` : "0",
+    formula: orders.length > 0 ? `=L${totalsRowIndex}` : "0",
     result: orders.length > 0 ? undefined : 0,
   };
 
@@ -85,7 +87,6 @@ export const exportSalesExcel = async (report, filters = {}) => {
   });
 
   // Table Header
-
   worksheet.addRow([]);
 
   const headerRow = worksheet.addRow([
@@ -96,6 +97,7 @@ export const exportSalesExcel = async (report, filters = {}) => {
     "Cancelled Qty",
     "Returned Qty",
     "Gross Subtotal",
+    "Delivery Charge",
     "Offer Discount",
     "Coupon Discount",
     "Refunded Amt",
@@ -116,10 +118,9 @@ export const exportSalesExcel = async (report, filters = {}) => {
   });
 
   worksheet.views = [{ state: "frozen", ySplit: 9 }];
-  worksheet.autoFilter = { from: "A9", to: "M9" };
+  worksheet.autoFilter = { from: "A9", to: "N9" };
 
-  // Transactional Rows
-
+  // Transaction
   orders.forEach((order) => {
     const totalOrderedQty =
       order.items?.reduce(
@@ -147,9 +148,14 @@ export const exportSalesExcel = async (report, filters = {}) => {
         0,
       ) || 0;
 
+    const grossNum = Number(order.subtotal || 0);
+    const deliveryNum = Number(order.deliveryCharge || 0);
+    const offerNum = Number(order.discount || 0);
+    const couponNum = Number(order.coupon?.discountAmount || 0);
+
     const computedNetTotal = Math.max(
       0,
-      Number(order.totalAmount || 0) - totalRefundedAmt,
+      grossNum + deliveryNum - offerNum - couponNum - totalRefundedAmt,
     );
 
     worksheet.addRow([
@@ -161,9 +167,10 @@ export const exportSalesExcel = async (report, filters = {}) => {
       totalOrderedQty,
       totalCancelledQty,
       totalReturnedQty,
-      Number(order.subtotal || 0),
-      Number(order.discount || 0),
-      Number(order.coupon?.discountAmount || 0),
+      grossNum,
+      deliveryNum,
+      offerNum,
+      couponNum,
       totalRefundedAmt,
       computedNetTotal,
       order.paymentMethod || "-",
@@ -172,7 +179,6 @@ export const exportSalesExcel = async (report, filters = {}) => {
   });
 
   // Totals Row
-
   const totalRow = worksheet.addRow([
     "TOTALS",
     "",
@@ -195,17 +201,21 @@ export const exportSalesExcel = async (report, filters = {}) => {
     },
     {
       formula: `=SUM(H${startRowIndex}:H${endRowIndex})`,
-      result: summary.offerDiscount || 0,
+      result: summary.totalDeliveryCharges || 0,
     },
     {
       formula: `=SUM(I${startRowIndex}:I${endRowIndex})`,
-      result: summary.couponDiscount || 0,
+      result: summary.offerDiscount || 0,
     },
     {
       formula: `=SUM(J${startRowIndex}:J${endRowIndex})`,
+      result: summary.couponDiscount || 0,
+    },
+    {
+      formula: `=SUM(K${startRowIndex}:K${endRowIndex})`,
       result: summary.totalRefunded || 0,
     },
-    { formula: `=SUM(K${startRowIndex}:K${endRowIndex})` }, // Let Excel engine evaluate true column runtime weight
+    { formula: `=SUM(L${startRowIndex}:L${endRowIndex})` },
     "",
     "",
   ]);
@@ -225,13 +235,11 @@ export const exportSalesExcel = async (report, filters = {}) => {
       cell.alignment = { horizontal: "center" };
     }
 
-    if ([7, 8, 9, 10, 11].includes(colNumber)) {
+    if ([7, 8, 9, 10, 11, 12].includes(colNumber)) {
       cell.numFmt = "₹#,##0.00";
       cell.alignment = { horizontal: "right" };
     }
   });
-
-  // Layout
 
   worksheet.eachRow((row, rowNumber) => {
     if (rowNumber >= startRowIndex && rowNumber <= endRowIndex) {
@@ -244,10 +252,10 @@ export const exportSalesExcel = async (report, filters = {}) => {
             fgColor: { argb: "FFF9FAFB" },
           };
         }
-        if ([1, 3, 4, 5, 6, 12, 13].includes(colNumber)) {
+        if ([1, 3, 4, 5, 6, 13, 14].includes(colNumber)) {
           cell.alignment = { horizontal: "center", vertical: "middle" };
         }
-        if ([7, 8, 9, 10, 11].includes(colNumber)) {
+        if ([7, 8, 9, 10, 11, 12].includes(colNumber)) {
           cell.numFmt = "₹#,##0.00";
           cell.alignment = { horizontal: "right", vertical: "middle" };
         }
@@ -260,8 +268,6 @@ export const exportSalesExcel = async (report, filters = {}) => {
       });
     }
   });
-
-  // Auto Width
 
   worksheet.columns.forEach((column) => {
     let maxLength = 16;

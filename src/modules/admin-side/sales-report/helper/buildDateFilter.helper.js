@@ -11,17 +11,20 @@ export const buildDateFilter = ({ type, startDate, endDate }) => {
       break;
 
     case "weekly": {
-      const firstDay = new Date();
-      firstDay.setDate(now.getDate() - now.getDay());
+      const startOfWeek = new Date(now);
 
-      from = new Date(firstDay.setHours(0, 0, 0, 0));
+      const dayOffset = now.getDay() === 0 ? 6 : now.getDay() - 1;
 
-      to = new Date();
-      to.setHours(23, 59, 59, 999);
+      startOfWeek.setDate(now.getDate() - dayOffset);
+      startOfWeek.setHours(0, 0, 0, 0);
 
+      const endOfWeek = new Date(now);
+      endOfWeek.setHours(23, 59, 59, 999);
+
+      from = startOfWeek;
+      to = endOfWeek;
       break;
     }
-
     case "monthly":
       from = new Date(now.getFullYear(), now.getMonth(), 1);
 
