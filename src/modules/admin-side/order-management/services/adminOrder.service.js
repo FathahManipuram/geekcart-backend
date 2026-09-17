@@ -1,13 +1,13 @@
-import {
-  ITEM_STATUSES,
-  ORDER_STATUSES,
-} from "../../../../common/constants/order/orderStatus.js";
+
+import { ITEM_STATUSES, ORDER_STATUSES } from "../../../../common/constants/order/orderStatus.js";
 import {
   ITEM_STATUS_TRANSITIONS,
   ORDER_STATUS_TRANSITIONS,
 } from "../../../../common/constants/order/orderStatusTransistion.js";
 import { HTTP_STATUS } from "../../../../common/constants/statusCode.js";
 import { AppError } from "../../../../common/utils/AppError.js";
+import { ORDER_ITEM_NOTIFICATION_MESSAGES, ORDER_NOTIFICATION_MESSAGES } from "../../../user-side/notification/constants/order-notification.constants.js";
+import { createNotificationService } from "../../../user-side/notification/services/notification.service.js";
 import { calculateItemRefund } from "../../../user-side/order/helpers/calculateItemRefund.js";
 import { Order } from "../../../user-side/order/models/order.model.js";
 import { processReferralReward } from "../../../user-side/referral/services/referral.service.js";
@@ -125,8 +125,9 @@ export const getOrderByIdService = async (orderId) => {
   };
 };
 
-// UPdate All order status
+// Update All order status
 export const updateOrderStatusService = async ({ orderId, orderStatus }) => {
+  console.log("Order create started.....")
   const order = await Order.findById(orderId);
 
   if (!order) {
@@ -269,8 +270,22 @@ export const updateOrderStatusService = async ({ orderId, orderStatus }) => {
     await processReferralReward(order.user);
   }
 
-  await order.save();
+ await order.save();
 
+ const notification = ORDER_NOTIFICATION_MESSAGES[orderStatus];
+console.log(notification);
+
+ if (notification) {
+   await createNotificationService({
+     userId: order.user,
+     title: notification.title,
+     message: notification.message(order.orderNumber),
+     type: "ORDER",
+     referenceId: order._id,
+     referenceModel: "Order",
+   });
+ }
+console.log("After createNotificationService");
   return {
     message: "Order status updated successfully",
     data: order,
@@ -396,6 +411,23 @@ export const updateOrderItemStatusService = async ({
   }
 
   await order.save();
+
+ const notification = ORDER_ITEM_NOTIFICATION_MESSAGES[status];
+
+ if (notification) {
+   await createNotificationService({
+     userId: order.user,
+     title: notification.title,
+     message: notification.message(item.name),
+     type: "ORDER",
+     referenceId: order._id,
+     referenceModel: "Order",
+     metadata: {
+       itemId: item._id,
+     },
+   });
+ }
+ console.log("After createNotificationService");
 
   return {
     message: "Item status updated successfully",
