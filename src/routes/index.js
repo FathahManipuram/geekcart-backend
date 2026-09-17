@@ -13,7 +13,7 @@ import returnRoutes from "../modules/user-side/return/routes/return.routes.js";
 import paymentRoutes from "../modules/user-side/payment/routes/payment.routes.js";
 import walletRoutes from "../modules/user-side/wallet/routes/wallet.routes.js";
 import userCouponRoutes from "../modules/user-side/coupon/routes/userCoupon.routes.js";
-
+import notificationRoutes from "../modules/user-side/notification/routes/routes.js"
 //Admin
 import userManagementRoutes from "../modules/admin-side/user-management/routes/user-management.routes.js";
 import categoryManagementRoutes from "../modules/admin-side/category-management/routes/category.routes.js";
@@ -41,6 +41,7 @@ router.use("/return", returnRoutes);
 router.use("/payments", paymentRoutes);
 router.use("/wallet", walletRoutes);
 router.use("/coupons", userCouponRoutes);
+router.use("/notifications", notificationRoutes);
 
 //Admin Routes
 router.use("/admin", userManagementRoutes);
