@@ -127,7 +127,7 @@ export const getOrderByIdService = async (orderId) => {
 
 // Update All order status
 export const updateOrderStatusService = async ({ orderId, orderStatus }) => {
-  console.log("Order create started.....")
+  
   const order = await Order.findById(orderId);
 
   if (!order) {
@@ -273,7 +273,7 @@ export const updateOrderStatusService = async ({ orderId, orderStatus }) => {
  await order.save();
 
  const notification = ORDER_NOTIFICATION_MESSAGES[orderStatus];
-console.log(notification);
+
 
  if (notification) {
    await createNotificationService({
@@ -285,7 +285,7 @@ console.log(notification);
      referenceModel: "Order",
    });
  }
-console.log("After createNotificationService");
+
   return {
     message: "Order status updated successfully",
     data: order,
@@ -427,7 +427,7 @@ export const updateOrderItemStatusService = async ({
      },
    });
  }
- console.log("After createNotificationService");
+
 
   return {
     message: "Item status updated successfully",
